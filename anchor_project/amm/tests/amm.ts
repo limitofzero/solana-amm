@@ -3,7 +3,7 @@ import { Program } from "@coral-xyz/anchor";
 import { Amm } from "../target/types/amm";
 import { Keypair, PublicKey, SystemProgram } from "@solana/web3.js";
 import { assert } from "chai";
-import { airdrop, indexToSeed } from "./helper";
+import {airdrop, checkAmm, indexToSeed} from "./helper";
 
 describe("amm", () => {
   anchor.setProvider(anchor.AnchorProvider.env());
@@ -105,18 +105,4 @@ describe("amm", () => {
       }
     });
   })
-
-  async function checkAmm(
-      program: anchor.Program<Amm>,
-      amm: PublicKey,
-      admin: PublicKey,
-      index: number,
-      fee: number,
-  ) {
-    let ammData = await program.account.amm.fetch(amm);
-
-    assert.strictEqual(ammData.admin.toBase58(), admin.toBase58(), `AMM admin should be "${admin.toBase58()}" but was "${ammData.admin.toBase58()}"`);
-    assert.strictEqual(ammData.index, index, `AMM index should be ${index} but was ${ammData.index}`);
-    assert.strictEqual(ammData.fee, fee, `AMM fee should be ${fee} but was ${ammData.fee}`);
-  }
 });
