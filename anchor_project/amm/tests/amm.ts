@@ -1,11 +1,11 @@
 import * as anchor from "@coral-xyz/anchor";
 import { Program } from "@coral-xyz/anchor";
 import { Amm } from "../target/types/amm";
-import { Keypair, Connection, PublicKey, SystemProgram } from "@solana/web3.js";
+import { Keypair, PublicKey, SystemProgram } from "@solana/web3.js";
 import { assert } from "chai";
+import { airdrop, indexToSeed } from "./helper";
 
 describe("amm", () => {
-  // Configure the client to use the local cluster.
   anchor.setProvider(anchor.AnchorProvider.env());
   let connection = anchor.getProvider().connection;
 
@@ -23,10 +23,8 @@ describe("amm", () => {
     const fee = 100;
 
     it("Is created!", async () => {
-      const indexSeed = Buffer.alloc(2)
-      indexSeed.writeInt16LE(index1)
       const [ammPda] = PublicKey.findProgramAddressSync(
-          [Buffer.from("AMM"), indexSeed],
+          [Buffer.from("AMM"), indexToSeed(index1)],
           program.programId
       );
 
@@ -40,17 +38,73 @@ describe("amm", () => {
 
       await checkAmm(program, ammPda, admin1.publicKey, index1, fee);
     });
+
+    it("Can create 2 pools with different indices", async () => {
+      const index1 = 10;
+      const index2 = 11;
+      const fee = 100;
+
+      const [ammPda1] = PublicKey.findProgramAddressSync(
+          [Buffer.from("AMM"), indexToSeed(index1)],
+          program.programId
+      );
+
+      await program.methods.createAmm(fee, index1).accounts({
+        amm: ammPda1,
+        adminAccount: admin1.publicKey,
+        signer: signer.publicKey,
+        systemProgram: SystemProgram.programId,
+      }).signers([signer]).rpc({ commitment: "confirmed" });
+
+      await checkAmm(program, ammPda1, admin1.publicKey, index1, fee);
+
+      const [ammPda2] = PublicKey.findProgramAddressSync(
+          [Buffer.from("AMM"), indexToSeed(index2)],
+          program.programId
+      );
+
+      await program.methods.createAmm(fee, index2).accounts({
+        amm: ammPda2,
+        adminAccount: admin1.publicKey,
+        signer: signer.publicKey,
+        systemProgram: SystemProgram.programId,
+      }).signers([signer]).rpc({ commitment: "confirmed" });
+
+      await checkAmm(program, ammPda2, admin1.publicKey, index2, fee);
+    });
+
+    it("Cannot create 2 pools with the same index", async () => {
+      const index1 = 20;
+      const fee = 100;
+
+      const [ammPda] = PublicKey.findProgramAddressSync(
+          [Buffer.from("AMM"), indexToSeed(index1)],
+          program.programId
+      );
+
+      await program.methods.createAmm(fee, index1).accounts({
+        amm: ammPda,
+        adminAccount: admin1.publicKey,
+        signer: signer.publicKey,
+        systemProgram: SystemProgram.programId,
+      }).signers([signer]).rpc({ commitment: "confirmed" });
+
+      await checkAmm(program, ammPda, admin1.publicKey, index1, fee);
+
+      try {
+        await program.methods.createAmm(fee, index1).accounts({
+          amm: ammPda,
+          adminAccount: admin1.publicKey,
+          signer: signer.publicKey,
+          systemProgram: SystemProgram.programId,
+        }).signers([signer]).rpc({ commitment: "confirmed" });
+        
+        assert.fail("Expected transaction to fail");
+      } catch (err) {
+        assert.isTrue(err.toString().includes("already in use") || err.toString().includes("AccountDiscriminatorAlreadySet"), "Expected account already in use error");
+      }
+    });
   })
-
-  async function airdrop(connection: Connection, address: PublicKey, amount = 1_000_000_000) {
-    await connection.confirmTransaction(await connection.requestAirdrop(address, amount), "confirmed");
-  }
-
-  function indexToSeed(index: number) {
-    const indexSeed = Buffer.alloc(2)
-    indexSeed.writeInt16LE(index)
-    return indexSeed;
-  }
 
   async function checkAmm(
       program: anchor.Program<Amm>,
@@ -61,8 +115,8 @@ describe("amm", () => {
   ) {
     let ammData = await program.account.amm.fetch(amm);
 
-    assert.strictEqual(ammData.admin.toBase58(), admin.toBase58(), `Tweet topic should be "${admin}" but was "${ammData.admin}"`);
-    assert.strictEqual(ammData.index, index, `Tweet topic should be "${index}" but was "${ammData.index}"`);
-    assert.strictEqual(ammData.fee, fee, `Tweet topic should be "${fee}" but was "${ammData.fee}"`);
+    assert.strictEqual(ammData.admin.toBase58(), admin.toBase58(), `AMM admin should be "${admin.toBase58()}" but was "${ammData.admin.toBase58()}"`);
+    assert.strictEqual(ammData.index, index, `AMM index should be ${index} but was ${ammData.index}`);
+    assert.strictEqual(ammData.fee, fee, `AMM fee should be ${fee} but was ${ammData.fee}`);
   }
 });
