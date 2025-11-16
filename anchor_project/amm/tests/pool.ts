@@ -522,6 +522,13 @@ describe("pool", () => {
                 payer: signer.publicKey,
             }).signers([signer]).rpc({commitment: "confirmed"});
 
+            const depositor1AccountLiquidityBefore = getAssociatedTokenAddressSync(
+                mintLiquidityPda,
+                signer.publicKey,
+                false
+            );
+            const lpAccount1Before = await getAccount(connection, depositor1AccountLiquidityBefore);
+
             const poolAccountABefore = await getAccount(connection, poolAccountA);
             const poolAccountBBefore = await getAccount(connection, poolAccountB);
             const mintLiquidityBefore = await getMint(connection, mintLiquidityPda);
@@ -560,7 +567,7 @@ describe("pool", () => {
                 signer.publicKey,
                 false
             );
-            const lpAccount2 = await getAccount(connection, depositor1AccountLiquidity);
+            const lpAccount2Total = await getAccount(connection, depositor1AccountLiquidity);
 
             const expectedUsedA = requiredA;
             const expectedUsedB = amountB2;
@@ -569,7 +576,11 @@ describe("pool", () => {
             const lpFromB2 = expectedUsedB.mul(totalLpBefore).div(reserveB);
             const expectedLp2 = lpFromA2.lt(lpFromB2) ? lpFromA2 : lpFromB2;
 
-            assert.strictEqual(lpAccount2.amount.toString(), expectedLp2.toString(), `LP should be ${expectedLp2.toString()} but was ${lpAccount2.amount.toString()}`);
+            const lpAccount1BeforeBN = new anchor.BN(lpAccount1Before.amount.toString());
+            const lpAccount2TotalBN = new anchor.BN(lpAccount2Total.amount.toString());
+            const lpAccount2Added = lpAccount2TotalBN.sub(lpAccount1BeforeBN);
+
+            assert.strictEqual(lpAccount2Added.toString(), expectedLp2.toString(), `LP should be ${expectedLp2.toString()} but was ${lpAccount2Added.toString()}`);
             assert.strictEqual(mintLiquidityAfter.supply.toString(), totalLpBefore.add(expectedLp2).toString(), `Total LP should be ${totalLpBefore.add(expectedLp2).toString()} but was ${mintLiquidityAfter.supply.toString()}`);
             assert.strictEqual(poolAccountAAfter.amount.toString(), reserveA.add(expectedUsedA).toString(), `Pool A should be ${reserveA.add(expectedUsedA).toString()} but was ${poolAccountAAfter.amount.toString()}`);
             assert.strictEqual(poolAccountBAfter.amount.toString(), reserveB.add(expectedUsedB).toString(), `Pool B should be ${reserveB.add(expectedUsedB).toString()} but was ${poolAccountBAfter.amount.toString()}`);
