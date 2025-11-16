@@ -117,10 +117,10 @@ fn calculate_lp(
     total_lp: u64,
 ) -> Result<u64> {
     if total_lp == 0 {
-        let r = amount_a
-            .checked_mul(amount_b)
-            .ok_or(AmmError::MathOverflow)?
-            .isqrt();
+        let product = (amount_a as u128)
+            .checked_mul(amount_b as u128)
+            .ok_or(AmmError::MathOverflow)?;
+        let r = (product as f64).sqrt() as u64;
         Ok(r)
     } else {
         let lp_from_a = (amount_a as u128)
@@ -188,7 +188,7 @@ pub struct AddLiquidity<'info> {
         init_if_needed,
         payer = payer,
         associated_token::mint = mint_liquidity,
-        associated_token::authority = authority,
+        associated_token::authority = depositor,
     )]
     pub depositor_account_liquidity: Box<Account<'info, TokenAccount>>,
 

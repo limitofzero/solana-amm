@@ -3,7 +3,7 @@ import { Program } from "@coral-xyz/anchor";
 import { Amm } from "../target/types/amm";
 import { Keypair, PublicKey, SystemProgram } from "@solana/web3.js";
 import { assert } from "chai";
-import {airdrop, checkAmm, indexToSeed} from "./helper";
+import {airdrop, checkAmm, indexToSeed, createAmm} from "./helper";
 
 describe("amm", () => {
   anchor.setProvider(anchor.AnchorProvider.env());
@@ -23,19 +23,7 @@ describe("amm", () => {
     const fee = 100;
 
     it("Is created!", async () => {
-      const [ammPda] = PublicKey.findProgramAddressSync(
-          [Buffer.from("AMM"), indexToSeed(index1)],
-          program.programId
-      );
-
-
-      await program.methods.createAmm(fee, index1).accounts({
-        amm: ammPda,
-        adminAccount: admin1.publicKey,
-        signer: signer.publicKey,
-        systemProgram: SystemProgram.programId,
-      }).signers([signer]).rpc({ commitment: "confirmed" });
-
+      const { ammPda } = await createAmm(program, signer, admin1.publicKey, fee, index1);
       await checkAmm(program, ammPda, admin1.publicKey, index1, fee);
     });
 
@@ -44,32 +32,10 @@ describe("amm", () => {
       const index2 = 11;
       const fee = 100;
 
-      const [ammPda1] = PublicKey.findProgramAddressSync(
-          [Buffer.from("AMM"), indexToSeed(index1)],
-          program.programId
-      );
-
-      await program.methods.createAmm(fee, index1).accounts({
-        amm: ammPda1,
-        adminAccount: admin1.publicKey,
-        signer: signer.publicKey,
-        systemProgram: SystemProgram.programId,
-      }).signers([signer]).rpc({ commitment: "confirmed" });
-
+      const { ammPda: ammPda1 } = await createAmm(program, signer, admin1.publicKey, fee, index1);
       await checkAmm(program, ammPda1, admin1.publicKey, index1, fee);
 
-      const [ammPda2] = PublicKey.findProgramAddressSync(
-          [Buffer.from("AMM"), indexToSeed(index2)],
-          program.programId
-      );
-
-      await program.methods.createAmm(fee, index2).accounts({
-        amm: ammPda2,
-        adminAccount: admin1.publicKey,
-        signer: signer.publicKey,
-        systemProgram: SystemProgram.programId,
-      }).signers([signer]).rpc({ commitment: "confirmed" });
-
+      const { ammPda: ammPda2 } = await createAmm(program, signer, admin1.publicKey, fee, index2);
       await checkAmm(program, ammPda2, admin1.publicKey, index2, fee);
     });
 
@@ -77,28 +43,11 @@ describe("amm", () => {
       const index1 = 20;
       const fee = 100;
 
-      const [ammPda] = PublicKey.findProgramAddressSync(
-          [Buffer.from("AMM"), indexToSeed(index1)],
-          program.programId
-      );
-
-      await program.methods.createAmm(fee, index1).accounts({
-        amm: ammPda,
-        adminAccount: admin1.publicKey,
-        signer: signer.publicKey,
-        systemProgram: SystemProgram.programId,
-      }).signers([signer]).rpc({ commitment: "confirmed" });
-
+      const { ammPda } = await createAmm(program, signer, admin1.publicKey, fee, index1);
       await checkAmm(program, ammPda, admin1.publicKey, index1, fee);
 
       try {
-        await program.methods.createAmm(fee, index1).accounts({
-          amm: ammPda,
-          adminAccount: admin1.publicKey,
-          signer: signer.publicKey,
-          systemProgram: SystemProgram.programId,
-        }).signers([signer]).rpc({ commitment: "confirmed" });
-        
+        await createAmm(program, signer, admin1.publicKey, fee, index1);
         assert.fail("Expected transaction to fail");
       } catch (err) {
         assert.isTrue(err.toString().includes("already in use") || err.toString().includes("AccountDiscriminatorAlreadySet"), "Expected account already in use error");
