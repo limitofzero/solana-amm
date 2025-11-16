@@ -64,7 +64,7 @@ pub fn add_liquidity(ctx: Context<AddLiquidity>, amount_a: u64, amount_b: u64) -
     let authority = &ctx.accounts.authority;
     let authority_signer_seeds: &[&[&[u8]]] = &[&[
         &AMM_POOL_AUTHORITY_SEED.as_bytes(),
-        &ctx.accounts.pool.amm.key().to_bytes(),
+        &ctx.accounts.pool.amm.to_bytes(),
         &ctx.accounts.mint_a.key().to_bytes(),
         &ctx.accounts.mint_b.key().to_bytes(),
         &[ctx.bumps.authority],
