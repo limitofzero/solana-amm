@@ -90,18 +90,26 @@ fn calculate_liquidity_amounts(
 ) -> Result<(u64, u64)> {
     require!(reserve_a > 0 && reserve_b > 0, AmmError::InvalidPoolState);
 
-    let required_b = amount_a
-        .checked_mul(reserve_b)
+    // required_b = amount_a * reserve_b / reserve_a
+    let required_b_u128 = (amount_a as u128)
+        .checked_mul(reserve_b as u128)
         .ok_or(AmmError::MathOverflow)?
-        / reserve_a;
+        / (reserve_a as u128);
+
+    let required_b = u64::try_from(required_b_u128).map_err(|_| AmmError::MathOverflow)?;
+
     if amount_b >= required_b {
         return Ok((amount_a, required_b));
     }
 
-    let required_a = amount_b
-        .checked_mul(reserve_a)
+    // required_a = amount_b * reserve_a / reserve_b
+    let required_a_u128 = (amount_b as u128)
+        .checked_mul(reserve_a as u128)
         .ok_or(AmmError::MathOverflow)?
-        / reserve_b;
+        / (reserve_b as u128);
+
+    let required_a = u64::try_from(required_a_u128).map_err(|_| AmmError::MathOverflow)?;
+
     if amount_a >= required_a {
         Ok((required_a, amount_b))
     } else {

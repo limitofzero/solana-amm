@@ -205,6 +205,7 @@ describe("pool", () => {
     describe("add_liquidity", async () => {
         const ammIndex = 200;
         const fee = 100;
+        const DECIMALS = new anchor.BN(10).pow(new anchor.BN(9));
 
         it("Add liquidity to pool A-B: 100 = 100", async () => {
             const {ammPda} = await createAmm(program, signer, admin1.publicKey, fee, ammIndex);
@@ -248,18 +249,18 @@ describe("pool", () => {
                 signer.publicKey
             );
 
-            const amountA = 100 * 10 ** 9;
-            const amountB = 100 * 10 ** 9;
+            const amountA = new anchor.BN(100).mul(DECIMALS);
+            const amountB = new anchor.BN(100).mul(DECIMALS);
 
-            await mintTo(connection, signer, mintA.publicKey, depositorAccountA, signer, amountA);
-            await mintTo(connection, signer, mintB.publicKey, depositorAccountB, signer, amountB);
+            await mintTo(connection, signer, mintA.publicKey, depositorAccountA, signer, amountA.toNumber());
+            await mintTo(connection, signer, mintB.publicKey, depositorAccountB, signer, amountB.toNumber());
 
             const accountA = await getAccount(connection, depositorAccountA);
             const accountB = await getAccount(connection, depositorAccountB);
-            assert.isTrue(accountA.amount >= amountA, "Depositor account A should have enough tokens");
-            assert.isTrue(accountB.amount >= amountB, "Depositor account B should have enough tokens");
+            assert.isTrue(accountA.amount >= amountA.toNumber(), "Depositor account A should have enough tokens");
+            assert.isTrue(accountB.amount >= amountB.toNumber(), "Depositor account B should have enough tokens");
 
-            await program.methods.addLiquidity(new anchor.BN(amountA), new anchor.BN(amountB)).accounts({
+            await program.methods.addLiquidity(amountA, amountB).accounts({
                 pool: poolPda1,
                 mintA: mintA.publicKey,
                 mintB: mintB.publicKey,
@@ -270,8 +271,9 @@ describe("pool", () => {
             }).signers([signer]).rpc({commitment: "confirmed"});
 
             const lpAccount = await getAccount(connection, depositorAccountLiquidity);
-            const expectedLp = Math.floor(Math.sqrt(amountA * amountB));
-            assert.strictEqual(Number(lpAccount.amount), expectedLp, `LP amount should be ${expectedLp} but was ${lpAccount.amount}`);
+            const product = amountA.mul(amountB);
+            const expectedLp = new anchor.BN(Math.floor(Math.sqrt(Number(product))));
+            assert.strictEqual(lpAccount.amount.toString(), expectedLp.toString(), `LP amount should be ${expectedLp.toString()} but was ${lpAccount.amount.toString()}`);
         });
 
         it("Add liquidity to pool C-A: 50 = 100", async () => {
@@ -318,18 +320,18 @@ describe("pool", () => {
             } catch (err) {
             }
 
-            const amountC = 50 * 10 ** 9;
-            const amountA2 = 100 * 10 ** 9;
+            const amountC = new anchor.BN(50).mul(DECIMALS);
+            const amountA2 = new anchor.BN(100).mul(DECIMALS);
 
-            await mintTo(connection, signer, mintC.publicKey, depositorAccountC, signer, amountC);
-            await mintTo(connection, signer, mintA.publicKey, depositorAccountA2, signer, amountA2);
+            await mintTo(connection, signer, mintC.publicKey, depositorAccountC, signer, amountC.toNumber());
+            await mintTo(connection, signer, mintA.publicKey, depositorAccountA2, signer, amountA2.toNumber());
 
             const accountC = await getAccount(connection, depositorAccountC);
             const accountA2 = await getAccount(connection, depositorAccountA2);
-            assert.isTrue(accountC.amount >= amountC, "Depositor account C should have enough tokens");
-            assert.isTrue(accountA2.amount >= amountA2, "Depositor account A2 should have enough tokens");
+            assert.isTrue(accountC.amount >= amountC.toNumber(), "Depositor account C should have enough tokens");
+            assert.isTrue(accountA2.amount >= amountA2.toNumber(), "Depositor account A2 should have enough tokens");
 
-            await program.methods.addLiquidity(new anchor.BN(amountC), new anchor.BN(amountA2)).accounts({
+            await program.methods.addLiquidity(amountC, amountA2).accounts({
                 pool: poolPda2,
                 mintA: mintC.publicKey,
                 mintB: mintA.publicKey,
@@ -340,8 +342,9 @@ describe("pool", () => {
             }).signers([signer]).rpc({commitment: "confirmed"});
 
             const lpAccount2 = await getAccount(connection, depositorAccountLiquidity2);
-            const expectedLp2 = Math.floor(Math.sqrt(amountC * amountA2));
-            assert.strictEqual(Number(lpAccount2.amount), expectedLp2, `LP amount should be ${expectedLp2} but was ${lpAccount2.amount}`);
+            const product2 = amountC.mul(amountA2);
+            const expectedLp2 = new anchor.BN(Math.floor(Math.sqrt(Number(product2))));
+            assert.strictEqual(lpAccount2.amount.toString(), expectedLp2.toString(), `LP amount should be ${expectedLp2.toString()} but was ${lpAccount2.amount.toString()}`);
         });
 
         it("Second user adds liquidity to pool A-B: checks total_lp, pool balances, and LP transfer", async () => {
@@ -355,8 +358,8 @@ describe("pool", () => {
                 mintB.publicKey
             );
 
-            const amountA1 = 100 * 10 ** 9;
-            const amountB1 = 100 * 10 ** 9;
+            const amountA1 = new anchor.BN(100).mul(DECIMALS);
+            const amountB1 = new anchor.BN(100).mul(DECIMALS);
 
             const depositor1AccountA = getAssociatedTokenAddressSync(
                 mintA.publicKey,
@@ -376,13 +379,19 @@ describe("pool", () => {
                 false
             );
 
-            await createAssociatedTokenAccount(connection, signer, mintA.publicKey, signer.publicKey);
-            await createAssociatedTokenAccount(connection, signer, mintB.publicKey, signer.publicKey);
+            try {
+                await createAssociatedTokenAccount(connection, signer, mintA.publicKey, signer.publicKey);
+            } catch (err) {
+            }
+            try {
+                await createAssociatedTokenAccount(connection, signer, mintB.publicKey, signer.publicKey);
+            } catch (err) {
+            }
 
-            await mintTo(connection, signer, mintA.publicKey, depositor1AccountA, signer, amountA1);
-            await mintTo(connection, signer, mintB.publicKey, depositor1AccountB, signer, amountB1);
+            await mintTo(connection, signer, mintA.publicKey, depositor1AccountA, signer, amountA1.toNumber());
+            await mintTo(connection, signer, mintB.publicKey, depositor1AccountB, signer, amountB1.toNumber());
 
-            await program.methods.addLiquidity(new anchor.BN(amountA1), new anchor.BN(amountB1)).accounts({
+            await program.methods.addLiquidity(amountA1, amountB1).accounts({
                 pool: poolPda,
                 mintA: mintA.publicKey,
                 mintB: mintB.publicKey,
@@ -393,15 +402,16 @@ describe("pool", () => {
             }).signers([signer]).rpc({commitment: "confirmed"});
 
             const lpAccount1 = await getAccount(connection, depositor1AccountLiquidity);
-            const expectedLp1 = Math.floor(Math.sqrt(amountA1 * amountB1));
-            assert.strictEqual(Number(lpAccount1.amount), expectedLp1, `First user LP should be ${expectedLp1} but was ${lpAccount1.amount}`);
+            const product1 = amountA1.mul(amountB1);
+            const expectedLp1 = new anchor.BN(Math.floor(Math.sqrt(Number(product1))));
+            assert.strictEqual(lpAccount1.amount.toString(), expectedLp1.toString(), `First user LP should be ${expectedLp1.toString()} but was ${lpAccount1.amount.toString()}`);
 
             const poolAccountABefore = await getAccount(connection, poolAccountA);
             const poolAccountBBefore = await getAccount(connection, poolAccountB);
             const mintLiquidityBefore = await getMint(connection, mintLiquidityPda);
 
-            const amountA2 = 50 * 10 ** 9;
-            const amountB2 = 50 * 10 ** 9;
+            const amountA2 = new anchor.BN(50).mul(DECIMALS);
+            const amountB2 = new anchor.BN(50).mul(DECIMALS);
 
             await airdrop(connection, signer2.publicKey);
 
@@ -432,10 +442,10 @@ describe("pool", () => {
             } catch (err) {
             }
 
-            await mintTo(connection, signer, mintA.publicKey, depositor2AccountA, signer, amountA2);
-            await mintTo(connection, signer, mintB.publicKey, depositor2AccountB, signer, amountB2);
+            await mintTo(connection, signer, mintA.publicKey, depositor2AccountA, signer, amountA2.toNumber());
+            await mintTo(connection, signer, mintB.publicKey, depositor2AccountB, signer, amountB2.toNumber());
 
-            await program.methods.addLiquidity(new anchor.BN(amountA2), new anchor.BN(amountB2)).accounts({
+            await program.methods.addLiquidity(amountA2, amountB2).accounts({
                 pool: poolPda,
                 mintA: mintA.publicKey,
                 mintB: mintB.publicKey,
@@ -450,19 +460,18 @@ describe("pool", () => {
             const mintLiquidityAfter = await getMint(connection, mintLiquidityPda);
             const lpAccount2 = await getAccount(connection, depositor2AccountLiquidity);
 
-            const reserveA = Number(poolAccountABefore.amount);
-            const reserveB = Number(poolAccountBBefore.amount);
-            const totalLpBefore = Number(mintLiquidityBefore.supply);
+            const reserveA = new anchor.BN(poolAccountABefore.amount.toString());
+            const reserveB = new anchor.BN(poolAccountBBefore.amount.toString());
+            const totalLpBefore = new anchor.BN(mintLiquidityBefore.supply.toString());
 
-            const expectedLp2 = Math.min(
-                Math.floor((amountA2 * totalLpBefore) / reserveA),
-                Math.floor((amountB2 * totalLpBefore) / reserveB)
-            );
+            const lpFromA = amountA2.mul(totalLpBefore).div(reserveA);
+            const lpFromB = amountB2.mul(totalLpBefore).div(reserveB);
+            const expectedLp2 = lpFromA.lt(lpFromB) ? lpFromA : lpFromB;
 
-            assert.strictEqual(Number(lpAccount2.amount), expectedLp2, `Second user LP should be ${expectedLp2} but was ${lpAccount2.amount}`);
-            assert.strictEqual(Number(mintLiquidityAfter.supply), totalLpBefore + expectedLp2, `Total LP should be ${totalLpBefore + expectedLp2} but was ${mintLiquidityAfter.supply}`);
-            assert.strictEqual(Number(poolAccountAAfter.amount), reserveA + amountA2, `Pool A should be ${reserveA + amountA2} but was ${poolAccountAAfter.amount}`);
-            assert.strictEqual(Number(poolAccountBAfter.amount), reserveB + amountB2, `Pool B should be ${reserveB + amountB2} but was ${poolAccountBAfter.amount}`);
+            assert.strictEqual(lpAccount2.amount.toString(), expectedLp2.toString(), `Second user LP should be ${expectedLp2.toString()} but was ${lpAccount2.amount.toString()}`);
+            assert.strictEqual(mintLiquidityAfter.supply.toString(), totalLpBefore.add(expectedLp2).toString(), `Total LP should be ${totalLpBefore.add(expectedLp2).toString()} but was ${mintLiquidityAfter.supply.toString()}`);
+            assert.strictEqual(poolAccountAAfter.amount.toString(), reserveA.add(amountA2).toString(), `Pool A should be ${reserveA.add(amountA2).toString()} but was ${poolAccountAAfter.amount.toString()}`);
+            assert.strictEqual(poolAccountBAfter.amount.toString(), reserveB.add(amountB2).toString(), `Pool B should be ${reserveB.add(amountB2).toString()} but was ${poolAccountBAfter.amount.toString()}`);
         });
 
         it("Add liquidity using required_a branch (amount_b < required_b, but amount_a >= required_a)", async () => {
@@ -476,8 +485,8 @@ describe("pool", () => {
                 mintB.publicKey
             );
 
-            const initialAmountA = 100 * 10 ** 9;
-            const initialAmountB = 100 * 10 ** 9;
+            const initialAmountA = new anchor.BN(100).mul(DECIMALS);
+            const initialAmountB = new anchor.BN(100).mul(DECIMALS);
 
             const depositor1AccountA = getAssociatedTokenAddressSync(
                 mintA.publicKey,
@@ -500,10 +509,10 @@ describe("pool", () => {
             } catch (err) {
             }
 
-            await mintTo(connection, signer, mintA.publicKey, depositor1AccountA, signer, initialAmountA);
-            await mintTo(connection, signer, mintB.publicKey, depositor1AccountB, signer, initialAmountB);
+            await mintTo(connection, signer, mintA.publicKey, depositor1AccountA, signer, initialAmountA.toNumber());
+            await mintTo(connection, signer, mintB.publicKey, depositor1AccountB, signer, initialAmountB.toNumber());
 
-            await program.methods.addLiquidity(new anchor.BN(initialAmountA), new anchor.BN(initialAmountB)).accounts({
+            await program.methods.addLiquidity(initialAmountA, initialAmountB).accounts({
                 pool: poolPda,
                 mintA: mintA.publicKey,
                 mintB: mintB.publicKey,
@@ -517,23 +526,23 @@ describe("pool", () => {
             const poolAccountBBefore = await getAccount(connection, poolAccountB);
             const mintLiquidityBefore = await getMint(connection, mintLiquidityPda);
 
-            const reserveA = Number(poolAccountABefore.amount);
-            const reserveB = Number(poolAccountBBefore.amount);
-            const totalLpBefore = Number(mintLiquidityBefore.supply);
+            const reserveA = new anchor.BN(poolAccountABefore.amount.toString());
+            const reserveB = new anchor.BN(poolAccountBBefore.amount.toString());
+            const totalLpBefore = new anchor.BN(mintLiquidityBefore.supply.toString());
 
-            const amountA2 = 200 * 10 ** 9;
-            const amountB2 = 50 * 10 ** 9;
+            const amountA2 = new anchor.BN(200).mul(DECIMALS);
+            const amountB2 = new anchor.BN(50).mul(DECIMALS);
 
-            const requiredB = Math.floor((amountA2 * reserveB) / reserveA);
-            const requiredA = Math.floor((amountB2 * reserveA) / reserveB);
+            const requiredB = amountA2.mul(reserveB).div(reserveA);
+            const requiredA = amountB2.mul(reserveA).div(reserveB);
 
-            assert.isTrue(amountB2 < requiredB, `amountB2 (${amountB2}) should be less than requiredB (${requiredB})`);
-            assert.isTrue(amountA2 >= requiredA, `amountA2 (${amountA2}) should be >= requiredA (${requiredA})`);
+            assert.isTrue(amountB2.lt(requiredB), `amountB2 (${amountB2.toString()}) should be less than requiredB (${requiredB.toString()})`);
+            assert.isTrue(amountA2.gte(requiredA), `amountA2 (${amountA2.toString()}) should be >= requiredA (${requiredA.toString()})`);
 
-            await mintTo(connection, signer, mintA.publicKey, depositor1AccountA, signer, amountA2);
-            await mintTo(connection, signer, mintB.publicKey, depositor1AccountB, signer, amountB2);
+            await mintTo(connection, signer, mintA.publicKey, depositor1AccountA, signer, amountA2.toNumber());
+            await mintTo(connection, signer, mintB.publicKey, depositor1AccountB, signer, amountB2.toNumber());
 
-            await program.methods.addLiquidity(new anchor.BN(amountA2), new anchor.BN(amountB2)).accounts({
+            await program.methods.addLiquidity(amountA2, amountB2).accounts({
                 pool: poolPda,
                 mintA: mintA.publicKey,
                 mintB: mintB.publicKey,
@@ -556,15 +565,14 @@ describe("pool", () => {
             const expectedUsedA = requiredA;
             const expectedUsedB = amountB2;
 
-            const expectedLp2 = Math.min(
-                Math.floor((expectedUsedA * totalLpBefore) / reserveA),
-                Math.floor((expectedUsedB * totalLpBefore) / reserveB)
-            );
+            const lpFromA2 = expectedUsedA.mul(totalLpBefore).div(reserveA);
+            const lpFromB2 = expectedUsedB.mul(totalLpBefore).div(reserveB);
+            const expectedLp2 = lpFromA2.lt(lpFromB2) ? lpFromA2 : lpFromB2;
 
-            assert.strictEqual(Number(lpAccount2.amount), expectedLp2, `LP should be ${expectedLp2} but was ${lpAccount2.amount}`);
-            assert.strictEqual(Number(mintLiquidityAfter.supply), totalLpBefore + expectedLp2, `Total LP should be ${totalLpBefore + expectedLp2} but was ${mintLiquidityAfter.supply}`);
-            assert.strictEqual(Number(poolAccountAAfter.amount), reserveA + expectedUsedA, `Pool A should be ${reserveA + expectedUsedA} but was ${poolAccountAAfter.amount}`);
-            assert.strictEqual(Number(poolAccountBAfter.amount), reserveB + expectedUsedB, `Pool B should be ${reserveB + expectedUsedB} but was ${poolAccountBAfter.amount}`);
+            assert.strictEqual(lpAccount2.amount.toString(), expectedLp2.toString(), `LP should be ${expectedLp2.toString()} but was ${lpAccount2.amount.toString()}`);
+            assert.strictEqual(mintLiquidityAfter.supply.toString(), totalLpBefore.add(expectedLp2).toString(), `Total LP should be ${totalLpBefore.add(expectedLp2).toString()} but was ${mintLiquidityAfter.supply.toString()}`);
+            assert.strictEqual(poolAccountAAfter.amount.toString(), reserveA.add(expectedUsedA).toString(), `Pool A should be ${reserveA.add(expectedUsedA).toString()} but was ${poolAccountAAfter.amount.toString()}`);
+            assert.strictEqual(poolAccountBAfter.amount.toString(), reserveB.add(expectedUsedB).toString(), `Pool B should be ${reserveB.add(expectedUsedB).toString()} but was ${poolAccountBAfter.amount.toString()}`);
         });
     });
 });
