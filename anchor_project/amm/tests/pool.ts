@@ -24,12 +24,10 @@ describe("pool", () => {
     await airdrop(connection, signer.publicKey);
     await airdrop(connection, admin1.publicKey);
 
-    await Promise.all([
-      createMintSafe(connection, signer, signer.publicKey, 9, mintA),
-      createMintSafe(connection, signer, signer.publicKey, 9, mintB),
-      createMintSafe(connection, signer, signer.publicKey, 9, mintC),
-      createMintSafe(connection, signer, signer.publicKey, 9, mintD),
-    ]);
+    await createMintSafe(connection, signer, signer.publicKey, 9, mintA);
+    await createMintSafe(connection, signer, signer.publicKey, 9, mintB);
+    await createMintSafe(connection, signer, signer.publicKey, 9, mintC);
+    await createMintSafe(connection, signer, signer.publicKey, 9, mintD);
   });
 
   beforeEach(async () => {
@@ -189,18 +187,9 @@ describe("pool", () => {
         assert.fail("Expected transaction to fail");
       } catch (err) {
         const errorString = err.toString();
-        const errorMessage = err.message || errorString;
         assert.isTrue(
-          errorString.includes("MintAccountsAreEqual") || 
-          errorMessage.includes("MintAccountsAreEqual") ||
-          errorString.includes("Mint accounts should be different") ||
-          errorString.includes("Provided owner is not allowed") ||
-          errorMessage.includes("Provided owner is not allowed") ||
-          errorString.includes("0x1770") ||
-          errorString.includes("1770") ||
-          errorMessage.includes("0x1770") ||
-          errorMessage.includes("1770"),
-          `Expected MintAccountsAreEqual or Provided owner is not allowed error, got: ${errorString}, message: ${errorMessage}`
+          errorString.includes("Provided owner is not allowed"),
+          `Expected "Provided owner is not allowed" error, got: ${errorString}`
         );
       }
     });
@@ -269,15 +258,8 @@ describe("pool", () => {
       } catch (err) {
         const errorString = err.toString();
         assert.isTrue(
-          errorString.includes("ConstraintSeeds") || 
-          errorString.includes("0x7d3") || 
-          errorString.includes("A seeds constraint was violated") ||
-          errorString.includes("AccountNotInitialized") ||
-          errorString.includes("3012") ||
-          errorString.includes("seeds") ||
-          errorString.includes("AccountNotEnoughKeys") ||
-          errorString.includes("0x7d4"),
-          `Expected constraint seeds or account not initialized error, got: ${errorString}`
+          errorString.includes("AccountNotInitialized") || errorString.includes("3012"),
+          `Expected AccountNotInitialized error, got: ${errorString}`
         );
       }
     });
