@@ -3,23 +3,17 @@
 import { useWallet, useConnection } from "@solana/wallet-adapter-react";
 import { useState, useEffect } from "react";
 import { PublicKey } from "@solana/web3.js";
-import { getProgram, getPoolPda, getAmmPda, getAuthorityPda, getMintLiquidityPda, getAllPools, AmmPool } from "@/lib/program";
+import { usePools, PoolWithIndex } from "@/contexts/PoolsContext";
+import { getProgram, getPoolPda, getAmmPda, getAuthorityPda, getMintLiquidityPda } from "@/lib/program";
 import { getAssociatedTokenAddressSync, TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID, getAccount, getMint } from "@solana/spl-token";
 import { BN } from "@coral-xyz/anchor";
 import { SystemProgram } from "@solana/web3.js";
 import StatusMessage from "./StatusMessage";
 
-interface PoolWithIndex extends AmmPool {
-  ammIndex: number;
-  poolPda: PublicKey;
-  reserveA?: string;
-  reserveB?: string;
-}
-
 export default function WithdrawLiquidity() {
   const { publicKey, signTransaction, signAllTransactions } = useWallet();
   const { connection } = useConnection();
-  const [pools, setPools] = useState<PoolWithIndex[]>([]);
+  const { pools, loading: loadingPools, refreshPools } = usePools();
   const [selectedPool, setSelectedPool] = useState<string>("");
   const [ammIndex, setAmmIndex] = useState<string>("1");
   const [mintA, setMintA] = useState<string>("");
@@ -32,83 +26,7 @@ export default function WithdrawLiquidity() {
   const [poolReserveB, setPoolReserveB] = useState<string>("");
   const [totalLp, setTotalLp] = useState<string>("");
   const [loading, setLoading] = useState(false);
-  const [loadingPools, setLoadingPools] = useState(false);
   const [status, setStatus] = useState<string>("");
-
-  const fetchPools = async () => {
-    if (!publicKey || !signTransaction) {
-      return;
-    }
-
-    setLoadingPools(true);
-    try {
-      const program = getProgram(connection, { publicKey, signTransaction, signAllTransactions } as any);
-      const allPools = await getAllPools(program);
-      
-      // Fetch AMM data to get index for each pool
-      const poolsWithIndex = await Promise.all(
-        allPools.map(async (pool) => {
-          try {
-            const accountNamespace = program.account as unknown as {
-              amm: {
-                fetch: (address: PublicKey) => Promise<{ index: number; fee: number; admin: PublicKey }>;
-              };
-            };
-            const ammData = await accountNamespace.amm.fetch(pool.amm);
-            const poolPda = await getPoolPda(pool.amm, pool.mintA, pool.mintB);
-            
-            // Get pool reserves
-            try {
-              const authorityPda = await getAuthorityPda(pool.amm, pool.mintA, pool.mintB);
-              const poolAccountA = getAssociatedTokenAddressSync(pool.mintA, authorityPda, true);
-              const poolAccountB = getAssociatedTokenAddressSync(pool.mintB, authorityPda, true);
-              
-              const accountA = await getAccount(connection, poolAccountA);
-              const accountB = await getAccount(connection, poolAccountB);
-              const mintAInfo = await getMint(connection, pool.mintA);
-              const mintBInfo = await getMint(connection, pool.mintB);
-              
-              const reserveA = (Number(accountA.amount) / Math.pow(10, mintAInfo.decimals)).toFixed(6);
-              const reserveB = (Number(accountB.amount) / Math.pow(10, mintBInfo.decimals)).toFixed(6);
-              
-              return {
-                ...pool,
-                ammIndex: ammData.index,
-                poolPda,
-                reserveA,
-                reserveB,
-              };
-            } catch (error) {
-              return {
-                ...pool,
-                ammIndex: ammData.index,
-                poolPda,
-                reserveA: "N/A",
-                reserveB: "N/A",
-              };
-            }
-          } catch (error) {
-            console.error("Error fetching AMM data:", error);
-            return null;
-          }
-        })
-      );
-
-      const validPools = poolsWithIndex.filter((pool) => pool !== null) as PoolWithIndex[];
-      setPools(validPools);
-    } catch (error) {
-      console.error("Error fetching pools:", error);
-    } finally {
-      setLoadingPools(false);
-    }
-  };
-
-  useEffect(() => {
-    if (publicKey && signTransaction) {
-      fetchPools();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [publicKey, signTransaction]);
 
   const fetchLpBalance = async (pool: PoolWithIndex) => {
     if (!publicKey || !pool) {
@@ -307,6 +225,9 @@ export default function WithdrawLiquidity() {
 
       setStatus(`Success! Liquidity withdrawn.\nTransaction: ${tx}`);
       
+      // Refresh pools after successful operation
+      await refreshPools();
+      
       // Refresh LP balance and estimates
       await fetchLpBalance(pool);
       await fetchPoolReserves(pool);
@@ -332,18 +253,9 @@ export default function WithdrawLiquidity() {
       <h2 className="text-2xl font-bold mb-4">Withdraw Liquidity</h2>
       <div className="space-y-4">
         <div>
-          <div className="flex items-center justify-between mb-2">
-            <label className="block text-sm font-medium text-gray-700">
-              Select Pool
-            </label>
-            <button
-              onClick={fetchPools}
-              disabled={loadingPools}
-              className="text-sm text-blue-600 hover:text-blue-800 disabled:text-gray-400"
-            >
-              {loadingPools ? "Loading..." : "Refresh"}
-            </button>
-          </div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Select Pool
+          </label>
           <select
             value={selectedPool}
             onChange={(e) => handlePoolSelect(e.target.value)}

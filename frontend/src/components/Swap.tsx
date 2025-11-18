@@ -4,24 +4,19 @@ import { useWallet, useConnection } from "@solana/wallet-adapter-react";
 import { useState, useEffect } from "react";
 import { PublicKey } from "@solana/web3.js";
 import { useSavedMints } from "@/hooks/useSavedMints";
-import { getProgram, getPoolPda, getAmmPda, getAuthorityPda, getAllPools, AmmPool } from "@/lib/program";
+import { usePools, PoolWithIndex } from "@/contexts/PoolsContext";
+import { getProgram, getPoolPda, getAmmPda, getAuthorityPda } from "@/lib/program";
 import { BN } from "@coral-xyz/anchor";
 import { TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID, getAssociatedTokenAddressSync, getAccount, getMint } from "@solana/spl-token";
 import { SystemProgram } from "@solana/web3.js";
 import StatusMessage from "./StatusMessage";
 
-interface PoolWithIndex extends AmmPool {
-  ammIndex: number;
-  poolPda: PublicKey;
-  reserveA?: string;
-  reserveB?: string;
-}
 
 export default function Swap() {
   const { publicKey, signTransaction, signAllTransactions } = useWallet();
   const { connection } = useConnection();
   const { savedMints } = useSavedMints();
-  const [pools, setPools] = useState<PoolWithIndex[]>([]);
+  const { pools, loading: loadingPools, refreshPools } = usePools();
   const [selectedPool, setSelectedPool] = useState<string>("");
   const [ammIndex, setAmmIndex] = useState<string>("1");
   const [mintA, setMintA] = useState<string>("");
@@ -38,84 +33,8 @@ export default function Swap() {
   const [slippage, setSlippage] = useState<string>("");
   const [recommendedMinOut, setRecommendedMinOut] = useState<string>("");
   const [loading, setLoading] = useState(false);
-  const [loadingPools, setLoadingPools] = useState(false);
   const [status, setStatus] = useState<string>("");
 
-  const fetchPools = async () => {
-    if (!publicKey || !signTransaction) {
-      return;
-    }
-
-    setLoadingPools(true);
-    try {
-      const program = getProgram(connection, { publicKey, signTransaction, signAllTransactions } as any);
-      const allPools = await getAllPools(program);
-      
-      // Fetch AMM data to get index for each pool
-      const poolsWithIndex = await Promise.all(
-        allPools.map(async (pool) => {
-          try {
-            const accountNamespace = program.account as unknown as {
-              amm: {
-                fetch: (address: PublicKey) => Promise<{ index: number; fee: number; admin: PublicKey }>;
-              };
-            };
-            const ammData = await accountNamespace.amm.fetch(pool.amm);
-            const poolPda = await getPoolPda(pool.amm, pool.mintA, pool.mintB);
-            
-            // Get pool reserves
-            try {
-              const authorityPda = await getAuthorityPda(pool.amm, pool.mintA, pool.mintB);
-              const poolAccountA = getAssociatedTokenAddressSync(pool.mintA, authorityPda, true);
-              const poolAccountB = getAssociatedTokenAddressSync(pool.mintB, authorityPda, true);
-              
-              const accountA = await getAccount(connection, poolAccountA);
-              const accountB = await getAccount(connection, poolAccountB);
-              const mintAInfo = await getMint(connection, pool.mintA);
-              const mintBInfo = await getMint(connection, pool.mintB);
-              
-              const reserveA = (Number(accountA.amount) / Math.pow(10, mintAInfo.decimals)).toFixed(6);
-              const reserveB = (Number(accountB.amount) / Math.pow(10, mintBInfo.decimals)).toFixed(6);
-              
-              return {
-                ...pool,
-                ammIndex: ammData.index,
-                poolPda,
-                reserveA,
-                reserveB,
-              };
-            } catch (error) {
-              // If can't fetch reserves, still return pool without reserves
-              return {
-                ...pool,
-                ammIndex: ammData.index,
-                poolPda,
-                reserveA: "N/A",
-                reserveB: "N/A",
-              };
-            }
-          } catch (error) {
-            console.error("Error fetching AMM data:", error);
-            return null;
-          }
-        })
-      );
-
-      const validPools = poolsWithIndex.filter((pool) => pool !== null) as PoolWithIndex[];
-      setPools(validPools);
-    } catch (error) {
-      console.error("Error fetching pools:", error);
-    } finally {
-      setLoadingPools(false);
-    }
-  };
-
-  useEffect(() => {
-    if (publicKey && signTransaction) {
-      fetchPools();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [publicKey, signTransaction]);
 
   const fetchTokenBalance = async (mintAddress: string, setBalance: (value: string) => void) => {
     if (!publicKey || !mintAddress) {
@@ -150,7 +69,8 @@ export default function Swap() {
     }
 
     try {
-      if (pool.reserveA && pool.reserveB) {
+      // Use reserves from context if available
+      if (pool.reserveA && pool.reserveB && pool.reserveA !== "N/A" && pool.reserveB !== "N/A") {
         setPoolReserveA(pool.reserveA);
         setPoolReserveB(pool.reserveB);
       } else {
@@ -170,19 +90,24 @@ export default function Swap() {
         setPoolReserveB(reserveB);
       }
       
-      // Fetch AMM fee
-      try {
-        const program = getProgram(connection, { publicKey, signTransaction, signAllTransactions } as any);
-        const accountNamespace = program.account as unknown as {
-          amm: {
-            fetch: (address: PublicKey) => Promise<{ index: number; fee: number; admin: PublicKey }>;
+      // Use fee from context if available
+      if (pool.fee !== undefined) {
+        setPoolFee(pool.fee);
+      } else {
+        // Fetch AMM fee
+        try {
+          const program = getProgram(connection, { publicKey, signTransaction, signAllTransactions } as any);
+          const accountNamespace = program.account as unknown as {
+            amm: {
+              fetch: (address: PublicKey) => Promise<{ index: number; fee: number; admin: PublicKey }>;
+            };
           };
-        };
-        const ammData = await accountNamespace.amm.fetch(pool.amm);
-        setPoolFee(ammData.fee);
-      } catch (error) {
-        console.error("Error fetching AMM fee:", error);
-        setPoolFee(0);
+          const ammData = await accountNamespace.amm.fetch(pool.amm);
+          setPoolFee(ammData.fee);
+        } catch (error) {
+          console.error("Error fetching AMM fee:", error);
+          setPoolFee(0);
+        }
       }
     } catch (error) {
       console.error("Error fetching pool reserves:", error);
@@ -388,6 +313,9 @@ export default function Swap() {
         .rpc();
 
       setStatus(`Success! Swap completed.\nTransaction: ${tx}`);
+      
+      // Refresh pools after successful operation
+      await refreshPools();
     } catch (error: any) {
       const errorMessage = error.message || error.toString();
       let detailedError = errorMessage;
@@ -409,18 +337,9 @@ export default function Swap() {
       <h2 className="text-2xl font-bold mb-4">Swap Tokens</h2>
       <div className="space-y-4">
         <div>
-          <div className="flex items-center justify-between mb-2">
-            <label className="block text-sm font-medium text-gray-700">
-              Select Pool
-            </label>
-            <button
-              onClick={fetchPools}
-              disabled={loadingPools}
-              className="text-sm text-blue-600 hover:text-blue-800 disabled:text-gray-400"
-            >
-              {loadingPools ? "Loading..." : "Refresh"}
-            </button>
-          </div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Select Pool
+          </label>
           <select
             value={selectedPool}
             onChange={(e) => handlePoolSelect(e.target.value)}

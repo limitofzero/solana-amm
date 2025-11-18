@@ -4,6 +4,7 @@ import { useWallet, useConnection } from "@solana/wallet-adapter-react";
 import { useState, useEffect } from "react";
 import { PublicKey } from "@solana/web3.js";
 import { useSavedMints } from "@/hooks/useSavedMints";
+import { usePools } from "@/contexts/PoolsContext";
 import StatusMessage from "./StatusMessage";
 import { getProgram, getAmmPda, getPoolPda, getAuthorityPda, getMintLiquidityPda } from "@/lib/program";
 import { TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID, getAssociatedTokenAddressSync, getAccount, getMint } from "@solana/spl-token";
@@ -13,6 +14,7 @@ export default function CreatePool() {
   const { publicKey, signTransaction, signAllTransactions } = useWallet();
   const { connection } = useConnection();
   const { savedMints } = useSavedMints();
+  const { refreshPools } = usePools();
   const [ammIndex, setAmmIndex] = useState<string>("1");
   const [mintA, setMintA] = useState<string>("");
   const [mintB, setMintB] = useState<string>("");
@@ -114,6 +116,9 @@ export default function CreatePool() {
         .rpc();
 
       setStatus(`Success! Pool created. Transaction: ${tx}`);
+      
+      // Refresh pools after successful operation
+      await refreshPools();
     } catch (error: any) {
       const errorMessage = error.message || error.toString();
       let detailedError = errorMessage;

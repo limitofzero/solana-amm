@@ -8,6 +8,7 @@ import { clusterApiUrl } from "@solana/web3.js";
 import { useMemo } from "react";
 import "@solana/wallet-adapter-react-ui/styles.css";
 import "./globals.css";
+import { PoolsProvider } from "@/contexts/PoolsContext";
 
 export default function RootLayout({
   children,
@@ -58,7 +59,9 @@ export default function RootLayout({
         <ConnectionProvider endpoint={endpoint}>
           <WalletProvider wallets={wallets} autoConnect>
             <WalletModalProvider>
-              {children}
+              <PoolsProvider>
+                {children}
+              </PoolsProvider>
             </WalletModalProvider>
           </WalletProvider>
         </ConnectionProvider>
