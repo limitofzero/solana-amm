@@ -5,7 +5,7 @@ import { useState, useEffect } from "react";
 import { PublicKey } from "@solana/web3.js";
 import { useSavedMints } from "@/hooks/useSavedMints";
 import { getProgram, getPoolPda, getAmmPda, getAuthorityPda, getMintLiquidityPda, getAllPools, AmmPool } from "@/lib/program";
-import { getAssociatedTokenAddressSync, TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID } from "@solana/spl-token";
+import { getAssociatedTokenAddressSync, TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID, getAccount, getMint } from "@solana/spl-token";
 import { BN } from "@coral-xyz/anchor";
 import { SystemProgram } from "@solana/web3.js";
 import StatusMessage from "./StatusMessage";
@@ -13,6 +13,8 @@ import StatusMessage from "./StatusMessage";
 interface PoolWithIndex extends AmmPool {
   ammIndex: number;
   poolPda: PublicKey;
+  reserveA?: string;
+  reserveB?: string;
 }
 
 export default function AddLiquidity() {
@@ -26,8 +28,13 @@ export default function AddLiquidity() {
   const [mintB, setMintB] = useState<string>("");
   const [amountA, setAmountA] = useState<string>("");
   const [amountB, setAmountB] = useState<string>("");
+  const [balanceA, setBalanceA] = useState<string>("");
+  const [balanceB, setBalanceB] = useState<string>("");
+  const [poolReserveA, setPoolReserveA] = useState<string>("");
+  const [poolReserveB, setPoolReserveB] = useState<string>("");
   const [loading, setLoading] = useState(false);
   const [loadingPools, setLoadingPools] = useState(false);
+  const [loadingBalances, setLoadingBalances] = useState(false);
   const [status, setStatus] = useState<string>("");
 
   const fetchPools = async () => {
@@ -51,11 +58,38 @@ export default function AddLiquidity() {
             };
             const ammData = await accountNamespace.amm.fetch(pool.amm);
             const poolPda = await getPoolPda(pool.amm, pool.mintA, pool.mintB);
-            return {
-              ...pool,
-              ammIndex: ammData.index,
-              poolPda,
-            };
+            
+            // Get pool reserves
+            try {
+              const authorityPda = await getAuthorityPda(pool.amm, pool.mintA, pool.mintB);
+              const poolAccountA = getAssociatedTokenAddressSync(pool.mintA, authorityPda, true);
+              const poolAccountB = getAssociatedTokenAddressSync(pool.mintB, authorityPda, true);
+              
+              const accountA = await getAccount(connection, poolAccountA);
+              const accountB = await getAccount(connection, poolAccountB);
+              const mintAInfo = await getMint(connection, pool.mintA);
+              const mintBInfo = await getMint(connection, pool.mintB);
+              
+              const reserveA = (Number(accountA.amount) / Math.pow(10, mintAInfo.decimals)).toFixed(6);
+              const reserveB = (Number(accountB.amount) / Math.pow(10, mintBInfo.decimals)).toFixed(6);
+              
+              return {
+                ...pool,
+                ammIndex: ammData.index,
+                poolPda,
+                reserveA,
+                reserveB,
+              };
+            } catch (error) {
+              // If can't fetch reserves, still return pool without reserves
+              return {
+                ...pool,
+                ammIndex: ammData.index,
+                poolPda,
+                reserveA: "N/A",
+                reserveB: "N/A",
+              };
+            }
           } catch (error) {
             console.error("Error fetching AMM data:", error);
             return null;
@@ -63,7 +97,7 @@ export default function AddLiquidity() {
         })
       );
 
-      const validPools = poolsWithIndex.filter((pool): pool is PoolWithIndex => pool !== null);
+      const validPools = poolsWithIndex.filter((pool) => pool !== null) as PoolWithIndex[];
       setPools(validPools);
     } catch (error) {
       console.error("Error fetching pools:", error);
@@ -79,12 +113,75 @@ export default function AddLiquidity() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [publicKey, signTransaction]);
 
-  const handlePoolSelect = (poolAddress: string) => {
+  const fetchTokenBalance = async (mintAddress: string, setBalance: (value: string) => void) => {
+    if (!publicKey || !mintAddress) {
+      setBalance("");
+      return;
+    }
+
+    try {
+      const mintPubkey = new PublicKey(mintAddress);
+      const tokenAccount = getAssociatedTokenAddressSync(mintPubkey, publicKey, false);
+      
+      try {
+        const account = await getAccount(connection, tokenAccount);
+        const mintInfo = await getMint(connection, mintPubkey);
+        const balance = (Number(account.amount) / Math.pow(10, mintInfo.decimals)).toFixed(6);
+        setBalance(balance);
+      } catch (error) {
+        // Token account doesn't exist
+        setBalance("0.000000");
+      }
+    } catch (error) {
+      console.error("Error fetching token balance:", error);
+      setBalance("Error");
+    }
+  };
+
+  const fetchPoolReserves = async (pool: PoolWithIndex) => {
+    if (!pool) {
+      setPoolReserveA("");
+      setPoolReserveB("");
+      return;
+    }
+
+    try {
+      if (pool.reserveA && pool.reserveB) {
+        setPoolReserveA(pool.reserveA);
+        setPoolReserveB(pool.reserveB);
+      } else {
+        const authorityPda = await getAuthorityPda(pool.amm, pool.mintA, pool.mintB);
+        const poolAccountA = getAssociatedTokenAddressSync(pool.mintA, authorityPda, true);
+        const poolAccountB = getAssociatedTokenAddressSync(pool.mintB, authorityPda, true);
+        
+        const accountA = await getAccount(connection, poolAccountA);
+        const accountB = await getAccount(connection, poolAccountB);
+        const mintAInfo = await getMint(connection, pool.mintA);
+        const mintBInfo = await getMint(connection, pool.mintB);
+        
+        const reserveA = (Number(accountA.amount) / Math.pow(10, mintAInfo.decimals)).toFixed(6);
+        const reserveB = (Number(accountB.amount) / Math.pow(10, mintBInfo.decimals)).toFixed(6);
+        
+        setPoolReserveA(reserveA);
+        setPoolReserveB(reserveB);
+      }
+    } catch (error) {
+      console.error("Error fetching pool reserves:", error);
+      setPoolReserveA("N/A");
+      setPoolReserveB("N/A");
+    }
+  };
+
+  const handlePoolSelect = async (poolAddress: string) => {
     if (!poolAddress) {
       setSelectedPool("");
       setAmmIndex("1");
       setMintA("");
       setMintB("");
+      setPoolReserveA("");
+      setPoolReserveB("");
+      setBalanceA("");
+      setBalanceB("");
       return;
     }
 
@@ -95,8 +192,31 @@ export default function AddLiquidity() {
       setAmmIndex(pool.ammIndex.toString());
       setMintA(pool.mintA.toString());
       setMintB(pool.mintB.toString());
+      
+      // Fetch pool reserves
+      await fetchPoolReserves(pool);
+      
+      // Fetch user balances
+      await fetchTokenBalance(pool.mintA.toString(), setBalanceA);
+      await fetchTokenBalance(pool.mintB.toString(), setBalanceB);
     }
   };
+
+  useEffect(() => {
+    if (mintA && !selectedPool) {
+      fetchTokenBalance(mintA, setBalanceA);
+    } else if (!mintA) {
+      setBalanceA("");
+    }
+  }, [mintA, selectedPool, publicKey, connection]);
+
+  useEffect(() => {
+    if (mintB && !selectedPool) {
+      fetchTokenBalance(mintB, setBalanceB);
+    } else if (!mintB) {
+      setBalanceB("");
+    }
+  }, [mintB, selectedPool, publicKey, connection]);
 
   const handleAddLiquidity = async () => {
     if (!publicKey || !signTransaction) {
@@ -197,6 +317,14 @@ export default function AddLiquidity() {
           {pools.length === 0 && !loadingPools && (
             <p className="mt-1 text-sm text-gray-500">No pools found. Create a pool first.</p>
           )}
+          {selectedPool && (poolReserveA || poolReserveB) && (
+            <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-md">
+              <p className="text-sm font-medium text-blue-900 mb-1">Pool Reserves:</p>
+              <p className="text-sm text-blue-700">
+                Token A: {poolReserveA} | Token B: {poolReserveB}
+              </p>
+            </div>
+          )}
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -241,6 +369,11 @@ export default function AddLiquidity() {
               </select>
             )}
           </div>
+          {balanceA && (
+            <p className="mt-1 text-sm text-gray-600">
+              Your balance: <span className="font-semibold">{balanceA}</span>
+            </p>
+          )}
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -272,6 +405,11 @@ export default function AddLiquidity() {
               </select>
             )}
           </div>
+          {balanceB && (
+            <p className="mt-1 text-sm text-gray-600">
+              Your balance: <span className="font-semibold">{balanceB}</span>
+            </p>
+          )}
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
