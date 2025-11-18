@@ -38,6 +38,8 @@ pub fn swap(ctx: Context<Swap>, is_swap_a: bool, amount: u64, min_out_amount: u6
 
     let (input_reserve, output_reserve) = (input_pool.amount, output_pool.amount);
 
+    require!(input_reserve > 0 && output_reserve > 0, AmmError::EmptyPool);
+
     let k = (input_reserve as u128)
         .checked_mul(output_reserve as u128)
         .ok_or(AmmError::MathOverflow)?;
@@ -83,7 +85,6 @@ pub fn swap(ctx: Context<Swap>, is_swap_a: bool, amount: u64, min_out_amount: u6
     transfer_checked(cpi_context, amount, input_mint.decimals)?;
 
     // transfer output amount to trader
-    let authority = &ctx.accounts.authority;
     let authority_signer_seeds: &[&[&[u8]]] = &[&[
         &AMM_POOL_AUTHORITY_SEED.as_bytes(),
         &ctx.accounts.pool.amm.to_bytes(),

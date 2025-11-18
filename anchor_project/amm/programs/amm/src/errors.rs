@@ -22,4 +22,6 @@ pub enum AmmError {
     MinOutputIsBiggerThanInput,
     #[msg("Output amount is less than expected min")]
     OutputAmountTooLow,
+    #[msg("Empty pull")]
+    EmptyPool,
 }
