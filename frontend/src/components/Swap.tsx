@@ -3,14 +3,17 @@
 import { useWallet, useConnection } from "@solana/wallet-adapter-react";
 import { useState } from "react";
 import { PublicKey } from "@solana/web3.js";
+import { useSavedMints } from "@/hooks/useSavedMints";
 import { getProgram, getPoolPda, getAmmPda, getAuthorityPda } from "@/lib/program";
 import { BN } from "@coral-xyz/anchor";
 import { TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID, getAssociatedTokenAddressSync } from "@solana/spl-token";
 import { SystemProgram } from "@solana/web3.js";
+import StatusMessage from "./StatusMessage";
 
 export default function Swap() {
   const { publicKey, signTransaction, signAllTransactions } = useWallet();
   const { connection } = useConnection();
+  const { savedMints } = useSavedMints();
   const [ammIndex, setAmmIndex] = useState<string>("1");
   const [mintA, setMintA] = useState<string>("");
   const [mintB, setMintB] = useState<string>("");
@@ -71,9 +74,18 @@ export default function Swap() {
         })
         .rpc();
 
-      setStatus(`Success! Swap completed. Transaction: ${tx}`);
+      setStatus(`Success! Swap completed.\nTransaction: ${tx}`);
     } catch (error: any) {
-      setStatus(`Error: ${error.message}`);
+      const errorMessage = error.message || error.toString();
+      let detailedError = errorMessage;
+      if (error.logs && Array.isArray(error.logs)) {
+        detailedError += `\n\nLogs:\n${error.logs.join("\n")}`;
+      }
+      if (error.error) {
+        detailedError += `\n\nError Code: ${error.error.code || "Unknown"}`;
+        detailedError += `\nError Name: ${error.error.name || "Unknown"}`;
+      }
+      setStatus(`Error: ${detailedError}`);
     } finally {
       setLoading(false);
     }
@@ -99,25 +111,61 @@ export default function Swap() {
           <label className="block text-sm font-medium text-gray-700 mb-2">
             Mint A Address
           </label>
-          <input
-            type="text"
-            value={mintA}
-            onChange={(e) => setMintA(e.target.value)}
-            className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
-            placeholder="Enter mint A public key"
-          />
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={mintA}
+              onChange={(e) => setMintA(e.target.value)}
+              className="flex-1 px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
+              placeholder="Enter mint A public key"
+            />
+            {savedMints.length > 0 && (
+              <select
+                onChange={(e) => {
+                  if (e.target.value) setMintA(e.target.value);
+                }}
+                className="px-3 py-2 border border-gray-300 rounded-md bg-gray-50 focus:ring-2 focus:ring-blue-500"
+                value=""
+              >
+                <option value="">Select saved...</option>
+                {savedMints.map((mint) => (
+                  <option key={mint.address} value={mint.address}>
+                    {mint.name || mint.address.slice(0, 8)}...
+                  </option>
+                ))}
+              </select>
+            )}
+          </div>
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
             Mint B Address
           </label>
-          <input
-            type="text"
-            value={mintB}
-            onChange={(e) => setMintB(e.target.value)}
-            className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
-            placeholder="Enter mint B public key"
-          />
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={mintB}
+              onChange={(e) => setMintB(e.target.value)}
+              className="flex-1 px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
+              placeholder="Enter mint B public key"
+            />
+            {savedMints.length > 0 && (
+              <select
+                onChange={(e) => {
+                  if (e.target.value) setMintB(e.target.value);
+                }}
+                className="px-3 py-2 border border-gray-300 rounded-md bg-gray-50 focus:ring-2 focus:ring-blue-500"
+                value=""
+              >
+                <option value="">Select saved...</option>
+                {savedMints.map((mint) => (
+                  <option key={mint.address} value={mint.address}>
+                    {mint.name || mint.address.slice(0, 8)}...
+                  </option>
+                ))}
+              </select>
+            )}
+          </div>
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -161,15 +209,14 @@ export default function Swap() {
         <button
           onClick={handleSwap}
           disabled={loading}
-          className="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 disabled:opacity-50"
+          className="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {loading ? "Swapping..." : "Swap"}
         </button>
-        {status && (
-          <div className={`p-3 rounded ${status.includes("Error") ? "bg-red-100 text-red-700" : "bg-green-100 text-green-700"}`}>
-            {status}
-          </div>
-        )}
+        <StatusMessage
+          status={status}
+          onClose={() => setStatus("")}
+        />
       </div>
     </div>
   );

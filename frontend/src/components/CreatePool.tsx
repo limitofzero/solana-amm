@@ -3,6 +3,7 @@
 import { useWallet, useConnection } from "@solana/wallet-adapter-react";
 import { useState } from "react";
 import { PublicKey } from "@solana/web3.js";
+import StatusMessage from "./StatusMessage";
 import { getProgram, getAmmPda, getPoolPda, getAuthorityPda, getMintLiquidityPda } from "@/lib/program";
 import { TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID, getAssociatedTokenAddressSync } from "@solana/spl-token";
 import { SystemProgram } from "@solana/web3.js";
@@ -69,7 +70,16 @@ export default function CreatePool() {
 
       setStatus(`Success! Pool created. Transaction: ${tx}`);
     } catch (error: any) {
-      setStatus(`Error: ${error.message}`);
+      const errorMessage = error.message || error.toString();
+      let detailedError = errorMessage;
+      if (error.logs && Array.isArray(error.logs)) {
+        detailedError += `\n\nLogs:\n${error.logs.join("\n")}`;
+      }
+      if (error.error) {
+        detailedError += `\n\nError Code: ${error.error.code || "Unknown"}`;
+        detailedError += `\nError Name: ${error.error.name || "Unknown"}`;
+      }
+      setStatus(`Error: ${detailedError}`);
     } finally {
       setLoading(false);
     }
@@ -118,15 +128,14 @@ export default function CreatePool() {
         <button
           onClick={handleCreatePool}
           disabled={loading}
-          className="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 disabled:opacity-50"
+          className="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {loading ? "Creating..." : "Create Pool"}
         </button>
-        {status && (
-          <div className={`p-3 rounded ${status.includes("Error") ? "bg-red-100 text-red-700" : "bg-green-100 text-green-700"}`}>
-            {status}
-          </div>
-        )}
+        <StatusMessage
+          status={status}
+          onClose={() => setStatus("")}
+        />
       </div>
     </div>
   );
