@@ -4,7 +4,8 @@ import { TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID, getAssociatedTokenAddres
 import { WalletContextState } from "@solana/wallet-adapter-react";
 import idl from "../../public/amm.json";
 
-export const PROGRAM_ID = new PublicKey("264uMZcS5Mcpe5EzAP6P2SoGQE4j7KtpSe6U8mSQZeAN");
+const PROGRAM_ID_STRING = process.env.NEXT_PUBLIC_PROGRAM_ID || "264uMZcS5Mcpe5EzAP6P2SoGQE4j7KtpSe6U8mSQZeAN";
+export const PROGRAM_ID = new PublicKey(PROGRAM_ID_STRING);
 
 export type AmmProgram = Program<Idl>;
 

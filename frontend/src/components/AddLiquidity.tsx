@@ -1,26 +1,102 @@
 "use client";
 
 import { useWallet, useConnection } from "@solana/wallet-adapter-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { PublicKey } from "@solana/web3.js";
 import { useSavedMints } from "@/hooks/useSavedMints";
-import { getProgram, getPoolPda, getAmmPda, getAuthorityPda, getMintLiquidityPda } from "@/lib/program";
+import { getProgram, getPoolPda, getAmmPda, getAuthorityPda, getMintLiquidityPda, getAllPools, AmmPool } from "@/lib/program";
 import { getAssociatedTokenAddressSync, TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID } from "@solana/spl-token";
 import { BN } from "@coral-xyz/anchor";
 import { SystemProgram } from "@solana/web3.js";
 import StatusMessage from "./StatusMessage";
 
+interface PoolWithIndex extends AmmPool {
+  ammIndex: number;
+  poolPda: PublicKey;
+}
+
 export default function AddLiquidity() {
   const { publicKey, signTransaction, signAllTransactions } = useWallet();
   const { connection } = useConnection();
   const { savedMints } = useSavedMints();
+  const [pools, setPools] = useState<PoolWithIndex[]>([]);
+  const [selectedPool, setSelectedPool] = useState<string>("");
   const [ammIndex, setAmmIndex] = useState<string>("1");
   const [mintA, setMintA] = useState<string>("");
   const [mintB, setMintB] = useState<string>("");
   const [amountA, setAmountA] = useState<string>("");
   const [amountB, setAmountB] = useState<string>("");
   const [loading, setLoading] = useState(false);
+  const [loadingPools, setLoadingPools] = useState(false);
   const [status, setStatus] = useState<string>("");
+
+  const fetchPools = async () => {
+    if (!publicKey || !signTransaction) {
+      return;
+    }
+
+    setLoadingPools(true);
+    try {
+      const program = getProgram(connection, { publicKey, signTransaction, signAllTransactions } as any);
+      const allPools = await getAllPools(program);
+      
+      // Fetch AMM data to get index for each pool
+      const poolsWithIndex = await Promise.all(
+        allPools.map(async (pool) => {
+          try {
+            const accountNamespace = program.account as unknown as {
+              amm: {
+                fetch: (address: PublicKey) => Promise<{ index: number; fee: number; admin: PublicKey }>;
+              };
+            };
+            const ammData = await accountNamespace.amm.fetch(pool.amm);
+            const poolPda = await getPoolPda(pool.amm, pool.mintA, pool.mintB);
+            return {
+              ...pool,
+              ammIndex: ammData.index,
+              poolPda,
+            };
+          } catch (error) {
+            console.error("Error fetching AMM data:", error);
+            return null;
+          }
+        })
+      );
+
+      const validPools = poolsWithIndex.filter((pool): pool is PoolWithIndex => pool !== null);
+      setPools(validPools);
+    } catch (error) {
+      console.error("Error fetching pools:", error);
+    } finally {
+      setLoadingPools(false);
+    }
+  };
+
+  useEffect(() => {
+    if (publicKey && signTransaction) {
+      fetchPools();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [publicKey, signTransaction]);
+
+  const handlePoolSelect = (poolAddress: string) => {
+    if (!poolAddress) {
+      setSelectedPool("");
+      setAmmIndex("1");
+      setMintA("");
+      setMintB("");
+      return;
+    }
+
+    const pool = pools.find((p) => p.poolPda.toString() === poolAddress);
+
+    if (pool) {
+      setSelectedPool(poolAddress);
+      setAmmIndex(pool.ammIndex.toString());
+      setMintA(pool.mintA.toString());
+      setMintB(pool.mintB.toString());
+    }
+  };
 
   const handleAddLiquidity = async () => {
     if (!publicKey || !signTransaction) {
@@ -91,6 +167,38 @@ export default function AddLiquidity() {
       <h2 className="text-2xl font-bold mb-4">Add Liquidity</h2>
       <div className="space-y-4">
         <div>
+          <div className="flex items-center justify-between mb-2">
+            <label className="block text-sm font-medium text-gray-700">
+              Select Pool
+            </label>
+            <button
+              onClick={fetchPools}
+              disabled={loadingPools}
+              className="text-sm text-blue-600 hover:text-blue-800 disabled:text-gray-400"
+            >
+              {loadingPools ? "Loading..." : "Refresh"}
+            </button>
+          </div>
+          <select
+            value={selectedPool}
+            onChange={(e) => handlePoolSelect(e.target.value)}
+            className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 bg-white"
+            disabled={loadingPools}
+          >
+            <option value="">
+              {loadingPools ? "Loading pools..." : "Select a pool..."}
+            </option>
+            {pools.map((pool) => (
+              <option key={pool.poolPda.toString()} value={pool.poolPda.toString()}>
+                {pool.mintA.toString().slice(0, 8)}... / {pool.mintB.toString().slice(0, 8)}... (AMM #{pool.ammIndex})
+              </option>
+            ))}
+          </select>
+          {pools.length === 0 && !loadingPools && (
+            <p className="mt-1 text-sm text-gray-500">No pools found. Create a pool first.</p>
+          )}
+        </div>
+        <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
             AMM Index
           </label>
@@ -100,6 +208,7 @@ export default function AddLiquidity() {
             onChange={(e) => setAmmIndex(e.target.value)}
             className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
             placeholder="1"
+            disabled={!!selectedPool}
           />
         </div>
         <div>
@@ -113,8 +222,9 @@ export default function AddLiquidity() {
               onChange={(e) => setMintA(e.target.value)}
               className="flex-1 px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
               placeholder="Enter mint A public key"
+              disabled={!!selectedPool}
             />
-            {savedMints.length > 0 && (
+            {savedMints.length > 0 && !selectedPool && (
               <select
                 onChange={(e) => {
                   if (e.target.value) setMintA(e.target.value);
@@ -143,8 +253,9 @@ export default function AddLiquidity() {
               onChange={(e) => setMintB(e.target.value)}
               className="flex-1 px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
               placeholder="Enter mint B public key"
+              disabled={!!selectedPool}
             />
-            {savedMints.length > 0 && (
+            {savedMints.length > 0 && !selectedPool && (
               <select
                 onChange={(e) => {
                   if (e.target.value) setMintB(e.target.value);

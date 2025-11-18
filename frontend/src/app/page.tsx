@@ -9,10 +9,11 @@ import AddLiquidity from "@/components/AddLiquidity";
 import Swap from "@/components/Swap";
 import PoolList from "@/components/PoolList";
 import DevTools from "@/components/DevTools";
+import TokenBalance from "@/components/TokenBalance";
 
 export default function Home() {
   const { connected } = useWallet();
-  const [activeTab, setActiveTab] = useState<"create-amm" | "create-pool" | "add-liquidity" | "swap" | "pools" | "dev-tools">("pools");
+  const [activeTab, setActiveTab] = useState<"create-amm" | "create-pool" | "add-liquidity" | "swap" | "pools" | "dev-tools" | "tokens">("pools");
   const isDev = process.env.NODE_ENV === "development";
 
   return (
@@ -40,6 +41,16 @@ export default function Home() {
                   }`}
                 >
                   Pools
+                </button>
+                <button
+                  onClick={() => setActiveTab("tokens")}
+                  className={`px-4 py-2 font-semibold ${
+                    activeTab === "tokens"
+                      ? "border-b-2 border-blue-500 text-blue-600"
+                      : "text-gray-600 hover:text-gray-800"
+                  }`}
+                >
+                  My Tokens
                 </button>
                 <button
                   onClick={() => setActiveTab("create-amm")}
@@ -97,6 +108,7 @@ export default function Home() {
 
               <div className="mt-8">
                 {activeTab === "pools" && <PoolList />}
+                {activeTab === "tokens" && <TokenBalance />}
                 {activeTab === "create-amm" && <CreateAmm />}
                 {activeTab === "create-pool" && <CreatePool />}
                 {activeTab === "add-liquidity" && <AddLiquidity />}
