@@ -13,13 +13,10 @@ pub fn withdraw_liquidity(ctx: Context<WithdrawLiquidity>, lp_amount_to_burn: u6
     let depositor_lp_account = &ctx.accounts.depositor_account_liquidity;
 
     let depositor_lp_balance = depositor_lp_account.amount;
-    require!(depositor_lp_balance <= total_lp, AmmError::InvalidLpBalance);
     require!(
         depositor_lp_balance >= lp_amount_to_burn,
         AmmError::InsufficientLpBalance
     );
-
-    let depositor_lp_share = lp_amount_to_burn as u128 / total_lp as u128;
 
     let pool_a = &ctx.accounts.pool_account_a;
     let pool_b = &ctx.accounts.pool_account_b;
@@ -28,7 +25,7 @@ pub fn withdraw_liquidity(ctx: Context<WithdrawLiquidity>, lp_amount_to_burn: u6
     let reserve_b = pool_b.amount;
 
     let (amount_a_out, amount_b_out) =
-        calculate_out_amounts(depositor_lp_share, total_lp, reserve_a, reserve_b)?;
+        calculate_out_amounts(lp_amount_to_burn, total_lp, reserve_a, reserve_b)?;
 
     let depositor = &ctx.accounts.depositor;
 
@@ -43,15 +40,25 @@ pub fn withdraw_liquidity(ctx: Context<WithdrawLiquidity>, lp_amount_to_burn: u6
     let cpi_context = CpiContext::new(cpi_program.to_account_info(), cpi_burn);
     burn(cpi_context, lp_amount_to_burn)?;
 
+    let authority = &ctx.accounts.authority;
+    let authority_signer_seeds: &[&[&[u8]]] = &[&[
+        &AMM_POOL_AUTHORITY_SEED.as_bytes(),
+        &ctx.accounts.pool.amm.to_bytes(),
+        &ctx.accounts.mint_a.key().to_bytes(),
+        &ctx.accounts.mint_b.key().to_bytes(),
+        &[ctx.bumps.authority],
+    ]];
+
     // withdraw amount_a_out
     let mint_a = &ctx.accounts.mint_a;
     let cpi_accounts = TransferChecked {
         mint: mint_a.to_account_info(),
         from: pool_a.to_account_info(),
         to: ctx.accounts.depositor_account_a.to_account_info(),
-        authority: depositor.to_account_info(),
+        authority: authority.to_account_info(),
     };
-    let cpi_context = CpiContext::new(cpi_program.to_account_info(), cpi_accounts);
+    let cpi_context = CpiContext::new(cpi_program.to_account_info(), cpi_accounts)
+        .with_signer(authority_signer_seeds);
     transfer_checked(cpi_context, amount_a_out, mint_a.decimals)?;
 
     // withdraw amount_b_out
@@ -60,26 +67,27 @@ pub fn withdraw_liquidity(ctx: Context<WithdrawLiquidity>, lp_amount_to_burn: u6
         mint: mint_b.to_account_info(),
         from: pool_b.to_account_info(),
         to: ctx.accounts.depositor_account_b.to_account_info(),
-        authority: depositor.to_account_info(),
+        authority: authority.to_account_info(),
     };
-    let cpi_context = CpiContext::new(cpi_program.to_account_info(), cpi_accounts);
+    let cpi_context = CpiContext::new(cpi_program.to_account_info(), cpi_accounts)
+        .with_signer(authority_signer_seeds);
     transfer_checked(cpi_context, amount_b_out, mint_b.decimals)?;
 
     Ok(())
 }
 
 fn calculate_out_amounts(
-    lp_share: u128,
+    lp_to_burn: u64,
     total_lp: u64,
     reserve_a: u64,
     reserve_b: u64,
 ) -> Result<(u64, u64)> {
-    let amount_a_out = (lp_share)
+    let amount_a_out = (lp_to_burn as u128)
         .checked_mul(reserve_a as u128)
         .ok_or(AmmError::MathOverflow)?
         / total_lp as u128;
 
-    let amount_b_out = (lp_share)
+    let amount_b_out = (lp_to_burn as u128)
         .checked_mul(reserve_b as u128)
         .ok_or(AmmError::MathOverflow)?
         / total_lp as u128;
