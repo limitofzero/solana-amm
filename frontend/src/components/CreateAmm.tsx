@@ -23,6 +23,8 @@ export default function CreateAmm() {
     setLoading(true);
     setStatus("");
 
+    
+
     try {
       const program = getProgram(connection, { publicKey, signTransaction, signAllTransactions } as any);
       const ammPda = await getAmmPda(parseInt(index));
