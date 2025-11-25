@@ -177,10 +177,10 @@ export default function PoolList() {
                       />
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {pool.reserveA || "N/A"}
+                      {pool.reserveA ? `${pool.reserveA} ${mintAName ? `(${mintAName})` : ""}` : "N/A"}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {pool.reserveB || "N/A"}
+                      {pool.reserveB ? `${pool.reserveB} ${mintBName ? `(${mintBName})` : ""}` : "N/A"}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       {pool.fee ? (pool.fee / 100).toFixed(2) + "%" : "N/A"}

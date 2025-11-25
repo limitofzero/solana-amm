@@ -17,6 +17,12 @@ export default function AddLiquidity() {
   const { connection } = useConnection();
   const { savedMints } = useSavedMints();
   const { pools, loading: loadingPools, refreshPools } = usePools();
+
+  // Helper to get token name from saved mints
+  const getTokenName = (mintAddress: string): string | undefined => {
+    const savedMint = savedMints.find((m) => m.address === mintAddress);
+    return savedMint?.name;
+  };
   const [selectedPool, setSelectedPool] = useState<string>("");
   const [ammIndex, setAmmIndex] = useState<string>("1");
   const [mintA, setMintA] = useState<string>("");
@@ -314,11 +320,17 @@ export default function AddLiquidity() {
             <option value="">
               {loadingPools ? "Loading pools..." : "Select a pool..."}
             </option>
-            {pools.map((pool) => (
-              <option key={pool.poolPda.toString()} value={pool.poolPda.toString()}>
-                {pool.mintA.toString().slice(0, 8)}... / {pool.mintB.toString().slice(0, 8)}... (AMM #{pool.ammIndex})
-              </option>
-            ))}
+            {pools.map((pool) => {
+              const mintAName = getTokenName(pool.mintA.toString());
+              const mintBName = getTokenName(pool.mintB.toString());
+              const displayA = mintAName || `${pool.mintA.toString().slice(0, 8)}...`;
+              const displayB = mintBName || `${pool.mintB.toString().slice(0, 8)}...`;
+              return (
+                <option key={pool.poolPda.toString()} value={pool.poolPda.toString()}>
+                  {displayA} / {displayB} (AMM #{pool.ammIndex})
+                </option>
+              );
+            })}
           </select>
           {pools.length === 0 && !loadingPools && (
             <p className="mt-1 text-sm text-gray-500">No pools found. Create a pool first.</p>
@@ -327,7 +339,7 @@ export default function AddLiquidity() {
             <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-md">
               <p className="text-sm font-medium text-blue-900 mb-1">Pool Reserves:</p>
               <p className="text-sm text-blue-700 mb-1">
-                Token A: {poolReserveA} | Token B: {poolReserveB}
+                {getTokenName(mintA) || "Token A"}: {poolReserveA} | {getTokenName(mintB) || "Token B"}: {poolReserveB}
               </p>
               {userShare && userShare !== "N/A" && (
                 <p className="text-sm text-blue-700">
@@ -352,7 +364,7 @@ export default function AddLiquidity() {
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
-            Mint A Address
+            {getTokenName(mintA) ? `Token A (${getTokenName(mintA)})` : "Mint A Address"}
           </label>
           <div className="flex gap-2">
             <input
@@ -364,7 +376,12 @@ export default function AddLiquidity() {
               disabled={!!selectedPool}
             />
             {mintA && (
-              <CopyableAddress address={mintA} short={false} className="flex-shrink-0" />
+              <CopyableAddress 
+                address={mintA} 
+                short={false} 
+                className="flex-shrink-0"
+                displayName={getTokenName(mintA)}
+              />
             )}
             {savedMints.length > 0 && !selectedPool && (
               <select
@@ -391,7 +408,7 @@ export default function AddLiquidity() {
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
-            Mint B Address
+            {getTokenName(mintB) ? `Token B (${getTokenName(mintB)})` : "Mint B Address"}
           </label>
           <div className="flex gap-2">
             <input
@@ -403,7 +420,12 @@ export default function AddLiquidity() {
               disabled={!!selectedPool}
             />
             {mintB && (
-              <CopyableAddress address={mintB} short={false} className="flex-shrink-0" />
+              <CopyableAddress 
+                address={mintB} 
+                short={false} 
+                className="flex-shrink-0"
+                displayName={getTokenName(mintB)}
+              />
             )}
             {savedMints.length > 0 && !selectedPool && (
               <select
@@ -430,7 +452,7 @@ export default function AddLiquidity() {
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
-            Amount A
+            Amount {getTokenName(mintA) ? `(${getTokenName(mintA)})` : "A"}
           </label>
           <input
             type="number"
@@ -443,7 +465,7 @@ export default function AddLiquidity() {
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
-            Amount B
+            Amount {getTokenName(mintB) ? `(${getTokenName(mintB)})` : "B"}
           </label>
           <div className="space-y-2">
             <div className="flex gap-2">
@@ -468,10 +490,10 @@ export default function AddLiquidity() {
             {recommendedAmountB && amountA && parseFloat(amountA) > 0 && (
               <div className="p-3 bg-green-50 border border-green-200 rounded-md">
                 <p className="text-sm text-green-800">
-                  <span className="font-semibold">Recommended:</span> {recommendedAmountB} Token B
+                  <span className="font-semibold">Recommended:</span> {recommendedAmountB} {getTokenName(mintB) || "Token B"}
                   {selectedPool && poolReserveA && poolReserveB && poolReserveA !== "N/A" && poolReserveB !== "N/A" ? (
                     <span className="text-xs block mt-1 text-green-700">
-                      Based on current pool ratio ({poolReserveA} : {poolReserveB})
+                      Based on current pool ratio ({poolReserveA} {getTokenName(mintA) || "Token A"} : {poolReserveB} {getTokenName(mintB) || "Token B"})
                     </span>
                   ) : (
                     <span className="text-xs block mt-1 text-green-700">

@@ -9,11 +9,19 @@ import { getAssociatedTokenAddressSync, TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGR
 import { BN } from "@coral-xyz/anchor";
 import { SystemProgram } from "@solana/web3.js";
 import StatusMessage from "./StatusMessage";
+import { useSavedMints } from "@/hooks/useSavedMints";
 
 export default function WithdrawLiquidity() {
   const { publicKey, signTransaction, signAllTransactions } = useWallet();
   const { connection } = useConnection();
   const { pools, loading: loadingPools, refreshPools } = usePools();
+  const { savedMints } = useSavedMints();
+
+  // Helper to get token name from saved mints
+  const getTokenName = (mintAddress: string): string | undefined => {
+    const savedMint = savedMints.find((m) => m.address === mintAddress);
+    return savedMint?.name;
+  };
   const [selectedPool, setSelectedPool] = useState<string>("");
   const [ammIndex, setAmmIndex] = useState<string>("1");
   const [mintA, setMintA] = useState<string>("");
@@ -265,11 +273,17 @@ export default function WithdrawLiquidity() {
             <option value="">
               {loadingPools ? "Loading pools..." : "Select a pool..."}
             </option>
-            {pools.map((pool) => (
-              <option key={pool.poolPda.toString()} value={pool.poolPda.toString()}>
-                {pool.mintA.toString().slice(0, 8)}... / {pool.mintB.toString().slice(0, 8)}... (AMM #{pool.ammIndex})
-              </option>
-            ))}
+            {pools.map((pool) => {
+              const poolMintAName = getTokenName(pool.mintA.toString());
+              const poolMintBName = getTokenName(pool.mintB.toString());
+              const displayA = poolMintAName || `${pool.mintA.toString().slice(0, 8)}...`;
+              const displayB = poolMintBName || `${pool.mintB.toString().slice(0, 8)}...`;
+              return (
+                <option key={pool.poolPda.toString()} value={pool.poolPda.toString()}>
+                  {displayA} / {displayB} (AMM #{pool.ammIndex})
+                </option>
+              );
+            })}
           </select>
           {pools.length === 0 && !loadingPools && (
             <p className="mt-1 text-sm text-gray-500">No pools found. Create a pool first.</p>
@@ -278,7 +292,7 @@ export default function WithdrawLiquidity() {
             <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-md">
               <p className="text-sm font-medium text-blue-900 mb-1">Pool Reserves:</p>
               <p className="text-sm text-blue-700">
-                Token A: {poolReserveA} | Token B: {poolReserveB}
+                {getTokenName(mintA) || "Token A"}: {poolReserveA} | {getTokenName(mintB) || "Token B"}: {poolReserveB}
               </p>
               {totalLp && (
                 <p className="text-sm text-blue-700 mt-1">
@@ -346,10 +360,10 @@ export default function WithdrawLiquidity() {
               <div className="p-4 bg-green-50 border border-green-200 rounded-md">
                 <p className="text-sm font-medium text-green-900 mb-2">Estimated Output:</p>
                 <p className="text-sm text-green-700">
-                  Token A: <span className="font-semibold">{estimatedA}</span>
+                  {getTokenName(mintA) || "Token A"}: <span className="font-semibold">{estimatedA}</span>
                 </p>
                 <p className="text-sm text-green-700">
-                  Token B: <span className="font-semibold">{estimatedB}</span>
+                  {getTokenName(mintB) || "Token B"}: <span className="font-semibold">{estimatedB}</span>
                 </p>
               </div>
             )}

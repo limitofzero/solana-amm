@@ -18,6 +18,12 @@ export default function Swap() {
   const { connection } = useConnection();
   const { savedMints } = useSavedMints();
   const { pools, loading: loadingPools, refreshPools } = usePools();
+
+  // Helper to get token name from saved mints
+  const getTokenName = (mintAddress: string): string | undefined => {
+    const savedMint = savedMints.find((m) => m.address === mintAddress);
+    return savedMint?.name;
+  };
   const [selectedPool, setSelectedPool] = useState<string>("");
   const [ammIndex, setAmmIndex] = useState<string>("1");
   const [mintA, setMintA] = useState<string>("");
@@ -350,11 +356,17 @@ export default function Swap() {
             <option value="">
               {loadingPools ? "Loading pools..." : "Select a pool..."}
             </option>
-            {pools.map((pool) => (
-              <option key={pool.poolPda.toString()} value={pool.poolPda.toString()}>
-                {pool.mintA.toString().slice(0, 8)}... / {pool.mintB.toString().slice(0, 8)}... (AMM #{pool.ammIndex})
-              </option>
-            ))}
+            {pools.map((pool) => {
+              const poolMintAName = getTokenName(pool.mintA.toString());
+              const poolMintBName = getTokenName(pool.mintB.toString());
+              const displayA = poolMintAName || `${pool.mintA.toString().slice(0, 8)}...`;
+              const displayB = poolMintBName || `${pool.mintB.toString().slice(0, 8)}...`;
+              return (
+                <option key={pool.poolPda.toString()} value={pool.poolPda.toString()}>
+                  {displayA} / {displayB} (AMM #{pool.ammIndex})
+                </option>
+              );
+            })}
           </select>
           {pools.length === 0 && !loadingPools && (
             <p className="mt-1 text-sm text-gray-500">No pools found. Create a pool first.</p>
@@ -363,16 +375,16 @@ export default function Swap() {
             <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-md">
               <p className="text-sm font-medium text-blue-900 mb-2">Pool Reserves:</p>
               <p className="text-sm text-blue-700 mb-2">
-                Token A: {poolReserveA} | Token B: {poolReserveB}
+                {getTokenName(mintA) || "Token A"}: {poolReserveA} | {getTokenName(mintB) || "Token B"}: {poolReserveB}
               </p>
               {poolReserveA !== "N/A" && poolReserveB !== "N/A" && parseFloat(poolReserveA) > 0 && parseFloat(poolReserveB) > 0 && (
                 <div className="mt-2 pt-2 border-t border-blue-300">
                   <p className="text-sm font-medium text-blue-900 mb-1">Exchange Rate:</p>
                   <p className="text-sm text-blue-700">
-                    1 Token A = {((parseFloat(poolReserveB) / parseFloat(poolReserveA))).toFixed(6)} Token B
+                    1 {getTokenName(mintA) || "Token A"} = {((parseFloat(poolReserveB) / parseFloat(poolReserveA))).toFixed(6)} {getTokenName(mintB) || "Token B"}
                   </p>
                   <p className="text-sm text-blue-700">
-                    1 Token B = {((parseFloat(poolReserveA) / parseFloat(poolReserveB))).toFixed(6)} Token A
+                    1 {getTokenName(mintB) || "Token B"} = {((parseFloat(poolReserveA) / parseFloat(poolReserveB))).toFixed(6)} {getTokenName(mintA) || "Token A"}
                   </p>
                 </div>
               )}
@@ -394,7 +406,7 @@ export default function Swap() {
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
-            Mint A Address
+            {getTokenName(mintA) ? `Token A (${getTokenName(mintA)})` : "Mint A Address"}
           </label>
           <div className="flex gap-2">
             <input
@@ -406,7 +418,12 @@ export default function Swap() {
               disabled={!!selectedPool}
             />
             {mintA && (
-              <CopyableAddress address={mintA} short={false} className="flex-shrink-0" />
+              <CopyableAddress 
+                address={mintA} 
+                short={false} 
+                className="flex-shrink-0"
+                displayName={getTokenName(mintA)}
+              />
             )}
             {savedMints.length > 0 && !selectedPool && (
               <select
@@ -433,7 +450,7 @@ export default function Swap() {
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
-            Mint B Address
+            {getTokenName(mintB) ? `Token B (${getTokenName(mintB)})` : "Mint B Address"}
           </label>
           <div className="flex gap-2">
             <input
@@ -445,7 +462,12 @@ export default function Swap() {
               disabled={!!selectedPool}
             />
             {mintB && (
-              <CopyableAddress address={mintB} short={false} className="flex-shrink-0" />
+              <CopyableAddress 
+                address={mintB} 
+                short={false} 
+                className="flex-shrink-0"
+                displayName={getTokenName(mintB)}
+              />
             )}
             {savedMints.length > 0 && !selectedPool && (
               <select
@@ -479,13 +501,17 @@ export default function Swap() {
             onChange={(e) => setIsSwapA(e.target.value === "A to B")}
             className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
           >
-            <option value="A to B">A to B</option>
-            <option value="B to A">B to A</option>
+            <option value="A to B">
+              {getTokenName(mintA) || "Token A"} → {getTokenName(mintB) || "Token B"}
+            </option>
+            <option value="B to A">
+              {getTokenName(mintB) || "Token B"} → {getTokenName(mintA) || "Token A"}
+            </option>
           </select>
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
-            Amount
+            Amount {isSwapA ? (getTokenName(mintA) ? `(${getTokenName(mintA)})` : "A") : (getTokenName(mintB) ? `(${getTokenName(mintB)})` : "B")}
           </label>
           <input
             type="number"
@@ -500,7 +526,7 @@ export default function Swap() {
           <div className="p-4 bg-green-50 border border-green-200 rounded-md">
             <p className="text-sm font-medium text-green-900 mb-2">Estimated Output:</p>
             <p className="text-sm text-green-700 mb-1">
-              You will receive: <span className="font-semibold">{estimatedOutput}</span> {isSwapA ? "Token B" : "Token A"}
+              You will receive: <span className="font-semibold">{estimatedOutput}</span> {isSwapA ? (getTokenName(mintB) || "Token B") : (getTokenName(mintA) || "Token A")}
             </p>
             {slippage && (
               <p className="text-sm text-green-700 mb-1">
