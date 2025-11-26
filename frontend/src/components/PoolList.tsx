@@ -4,7 +4,8 @@ import { usePools } from "@/contexts/PoolsContext";
 import { useWallet, useConnection } from "@solana/wallet-adapter-react";
 import { useEffect, useState } from "react";
 import { PublicKey } from "@solana/web3.js";
-import { getAssociatedTokenAddressSync, getAccount, getMint } from "@solana/spl-token";
+import { getAssociatedTokenAddressSync, getAccount } from "@solana/spl-token";
+import { getCachedMint } from "@/lib/mintCache";
 import { getMintLiquidityPda } from "@/lib/program";
 import CopyableAddress from "./CopyableAddress";
 import { useSavedMints } from "@/hooks/useSavedMints";
@@ -50,7 +51,7 @@ export default function PoolList() {
               userLpAmount = BigInt(0);
             }
 
-            const mintInfo = await getMint(connection, mintLiquidityPda);
+            const mintInfo = await getCachedMint(connection, mintLiquidityPda);
             const totalSupply = mintInfo.supply;
 
             if (totalSupply === BigInt(0)) {

@@ -9,7 +9,6 @@ import {
   createMintToInstruction,
   getAssociatedTokenAddressSync,
   getAccount,
-  getMint,
   TOKEN_PROGRAM_ID,
   MINT_SIZE,
   getMinimumBalanceForRentExemptMint,
@@ -20,6 +19,7 @@ import { SystemProgram, Keypair, Transaction } from "@solana/web3.js";
 import StatusMessage from "./StatusMessage";
 import CopyableAddress from "./CopyableAddress";
 import { usePools } from "@/contexts/PoolsContext";
+import { getCachedMint } from "@/lib/mintCache";
 
 export default function DevTools() {
   const { publicKey, signTransaction, signAllTransactions } = useWallet();
@@ -134,7 +134,7 @@ export default function DevTools() {
       const mint = new PublicKey(mintAddress);
       let decimals = parseInt(tokenDecimals) || 9;
       try {
-        const mintInfo = await getMint(connection, mint);
+        const mintInfo = await getCachedMint(connection, mint);
         decimals = mintInfo.decimals;
       } catch (error) {
         if (!tokenDecimals || isNaN(parseInt(tokenDecimals))) {

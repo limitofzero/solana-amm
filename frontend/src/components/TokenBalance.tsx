@@ -3,7 +3,8 @@
 import { useWallet, useConnection } from "@solana/wallet-adapter-react";
 import { useEffect, useState } from "react";
 import { PublicKey } from "@solana/web3.js";
-import { getMint, TOKEN_PROGRAM_ID } from "@solana/spl-token";
+import { TOKEN_PROGRAM_ID } from "@solana/spl-token";
+import { getCachedMint } from "@/lib/mintCache";
 import CopyableAddress from "./CopyableAddress";
 import { useSavedMints } from "@/hooks/useSavedMints";
 
@@ -55,7 +56,7 @@ export default function TokenBalance() {
             
             let decimals = tokenAmount.decimals;
             try {
-              const mintInfo = await getMint(connection, new PublicKey(tokenInfo.mint));
+              const mintInfo = await getCachedMint(connection, tokenInfo.mint);
               decimals = mintInfo.decimals;
             } catch (err) {
             }

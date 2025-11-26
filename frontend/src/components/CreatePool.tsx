@@ -8,25 +8,42 @@ import { usePools } from "@/contexts/PoolsContext";
 import StatusMessage from "./StatusMessage";
 import CopyableAddress from "./CopyableAddress";
 import { getProgram, getAmmPda, getPoolPda, getAuthorityPda, getMintLiquidityPda } from "@/lib/program";
-import { TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID, getAssociatedTokenAddressSync, getAccount, getMint } from "@solana/spl-token";
+import { TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID, getAssociatedTokenAddressSync, getAccount } from "@solana/spl-token";
+import { getCachedMint } from "@/lib/mintCache";
 import { SystemProgram } from "@solana/web3.js";
+import { BalancesState, UIState } from "@/types/componentState";
+
+interface PoolCreationState {
+  ammIndex: string;
+  mintA: string;
+  mintB: string;
+}
 
 export default function CreatePool() {
   const { publicKey, signTransaction, signAllTransactions } = useWallet();
   const { connection } = useConnection();
   const { savedMints } = useSavedMints();
   const { refreshPools } = usePools();
-  const [ammIndex, setAmmIndex] = useState<string>("1");
-  const [mintA, setMintA] = useState<string>("");
-  const [mintB, setMintB] = useState<string>("");
-  const [balanceA, setBalanceA] = useState<string>("");
-  const [balanceB, setBalanceB] = useState<string>("");
-  const [loading, setLoading] = useState(false);
-  const [status, setStatus] = useState<string>("");
 
-  const fetchTokenBalance = async (mintAddress: string, setBalance: (value: string) => void) => {
+  const [poolState, setPoolState] = useState<PoolCreationState>({
+    ammIndex: "1",
+    mintA: "",
+    mintB: "",
+  });
+
+  const [balances, setBalances] = useState<BalancesState>({
+    balanceA: "",
+    balanceB: "",
+  });
+
+  const [uiState, setUIState] = useState<UIState>({
+    loading: false,
+    status: "",
+  });
+
+  const fetchTokenBalance = async (mintAddress: string, tokenKey: "balanceA" | "balanceB") => {
     if (!publicKey || !mintAddress) {
-      setBalance("");
+      setBalances(prev => ({ ...prev, [tokenKey]: "" }));
       return;
     }
 
@@ -36,58 +53,55 @@ export default function CreatePool() {
       
       try {
         const account = await getAccount(connection, tokenAccount);
-        const mintInfo = await getMint(connection, mintPubkey);
+        const mintInfo = await getCachedMint(connection, mintPubkey);
         const balance = (Number(account.amount) / Math.pow(10, mintInfo.decimals)).toFixed(6);
-        setBalance(balance);
+        setBalances(prev => ({ ...prev, [tokenKey]: balance }));
       } catch (error) {
-        // Token account doesn't exist
-        setBalance("0.000000");
+        setBalances(prev => ({ ...prev, [tokenKey]: "0.000000" }));
       }
     } catch (error) {
       console.error("Error fetching token balance:", error);
-      setBalance("Error");
+      setBalances(prev => ({ ...prev, [tokenKey]: "Error" }));
     }
   };
 
   useEffect(() => {
-    if (mintA) {
-      fetchTokenBalance(mintA, setBalanceA);
+    if (poolState.mintA) {
+      fetchTokenBalance(poolState.mintA, "balanceA");
     } else {
-      setBalanceA("");
+      setBalances(prev => ({ ...prev, balanceA: "" }));
     }
-  }, [mintA, publicKey, connection]);
+  }, [poolState.mintA, publicKey, connection]);
 
   useEffect(() => {
-    if (mintB) {
-      fetchTokenBalance(mintB, setBalanceB);
+    if (poolState.mintB) {
+      fetchTokenBalance(poolState.mintB, "balanceB");
     } else {
-      setBalanceB("");
+      setBalances(prev => ({ ...prev, balanceB: "" }));
     }
-  }, [mintB, publicKey, connection]);
+  }, [poolState.mintB, publicKey, connection]);
 
   const handleCreatePool = async () => {
     if (!publicKey || !signTransaction) {
-      setStatus("Please connect your wallet");
+      setUIState(prev => ({ ...prev, status: "Please connect your wallet" }));
       return;
     }
 
-    if (!mintA || !mintB) {
-      setStatus("Please provide both mint addresses");
+    if (!poolState.mintA || !poolState.mintB) {
+      setUIState(prev => ({ ...prev, status: "Please provide both mint addresses" }));
       return;
     }
 
-    setLoading(true);
-    setStatus("");
+    setUIState({ loading: true, status: "" });
 
     try {
       const program = getProgram(connection, { publicKey, signTransaction, signAllTransactions } as any);
-      const ammPda = await getAmmPda(parseInt(ammIndex));
-      const mintAPubkey = new PublicKey(mintA);
-      const mintBPubkey = new PublicKey(mintB);
+      const ammPda = await getAmmPda(parseInt(poolState.ammIndex));
+      const mintAPubkey = new PublicKey(poolState.mintA);
+      const mintBPubkey = new PublicKey(poolState.mintB);
 
       if (mintAPubkey.equals(mintBPubkey)) {
-        setStatus("Mint A and Mint B must be different");
-        setLoading(false);
+        setUIState(prev => ({ ...prev, status: "Mint A and Mint B must be different", loading: false }));
         return;
       }
 
@@ -116,9 +130,7 @@ export default function CreatePool() {
         })
         .rpc();
 
-      setStatus(`Success! Pool created. Transaction: ${tx}`);
-      
-      // Refresh pools after successful operation
+      setUIState(prev => ({ ...prev, status: `Success! Pool created. Transaction: ${tx}` }));
       await refreshPools();
     } catch (error: any) {
       const errorMessage = error.message || error.toString();
@@ -130,9 +142,9 @@ export default function CreatePool() {
         detailedError += `\n\nError Code: ${error.error.code || "Unknown"}`;
         detailedError += `\nError Name: ${error.error.name || "Unknown"}`;
       }
-      setStatus(`Error: ${detailedError}`);
+      setUIState(prev => ({ ...prev, status: `Error: ${detailedError}` }));
     } finally {
-      setLoading(false);
+      setUIState(prev => ({ ...prev, loading: false }));
     }
   };
 
@@ -146,8 +158,8 @@ export default function CreatePool() {
           </label>
           <input
             type="number"
-            value={ammIndex}
-            onChange={(e) => setAmmIndex(e.target.value)}
+            value={poolState.ammIndex}
+            onChange={(e) => setPoolState(prev => ({ ...prev, ammIndex: e.target.value }))}
             className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
             placeholder="1"
           />
@@ -159,18 +171,18 @@ export default function CreatePool() {
           <div className="flex gap-2">
             <input
               type="text"
-              value={mintA}
-              onChange={(e) => setMintA(e.target.value)}
+              value={poolState.mintA}
+              onChange={(e) => setPoolState(prev => ({ ...prev, mintA: e.target.value }))}
               className="flex-1 px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
               placeholder="Enter mint A public key"
             />
-            {mintA && (
-              <CopyableAddress address={mintA} short={false} className="flex-shrink-0" />
+            {poolState.mintA && (
+              <CopyableAddress address={poolState.mintA} short={false} className="flex-shrink-0" />
             )}
             {savedMints.length > 0 && (
               <select
                 onChange={(e) => {
-                  if (e.target.value) setMintA(e.target.value);
+                  if (e.target.value) setPoolState(prev => ({ ...prev, mintA: e.target.value }));
                 }}
                 className="px-3 py-2 border border-gray-300 rounded-md bg-gray-50 focus:ring-2 focus:ring-blue-500"
                 value=""
@@ -184,9 +196,9 @@ export default function CreatePool() {
               </select>
             )}
           </div>
-          {balanceA && (
+          {balances.balanceA && (
             <p className="mt-1 text-sm text-gray-600">
-              Your balance: <span className="font-semibold">{balanceA}</span>
+              Your balance: <span className="font-semibold">{balances.balanceA}</span>
             </p>
           )}
         </div>
@@ -197,18 +209,18 @@ export default function CreatePool() {
           <div className="flex gap-2">
             <input
               type="text"
-              value={mintB}
-              onChange={(e) => setMintB(e.target.value)}
+              value={poolState.mintB}
+              onChange={(e) => setPoolState(prev => ({ ...prev, mintB: e.target.value }))}
               className="flex-1 px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
               placeholder="Enter mint B public key"
             />
-            {mintB && (
-              <CopyableAddress address={mintB} short={false} className="flex-shrink-0" />
+            {poolState.mintB && (
+              <CopyableAddress address={poolState.mintB} short={false} className="flex-shrink-0" />
             )}
             {savedMints.length > 0 && (
               <select
                 onChange={(e) => {
-                  if (e.target.value) setMintB(e.target.value);
+                  if (e.target.value) setPoolState(prev => ({ ...prev, mintB: e.target.value }));
                 }}
                 className="px-3 py-2 border border-gray-300 rounded-md bg-gray-50 focus:ring-2 focus:ring-blue-500"
                 value=""
@@ -222,22 +234,22 @@ export default function CreatePool() {
               </select>
             )}
           </div>
-          {balanceB && (
+          {balances.balanceB && (
             <p className="mt-1 text-sm text-gray-600">
-              Your balance: <span className="font-semibold">{balanceB}</span>
+              Your balance: <span className="font-semibold">{balances.balanceB}</span>
             </p>
           )}
         </div>
         <button
           onClick={handleCreatePool}
-          disabled={loading}
+          disabled={uiState.loading}
           className="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          {loading ? "Creating..." : "Create Pool"}
+          {uiState.loading ? "Creating..." : "Create Pool"}
         </button>
         <StatusMessage
-          status={status}
-          onClose={() => setStatus("")}
+          status={uiState.status}
+          onClose={() => setUIState(prev => ({ ...prev, status: "" }))}
         />
       </div>
     </div>

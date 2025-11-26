@@ -4,7 +4,8 @@ import { createContext, useContext, useState, useEffect, ReactNode } from "react
 import { useWallet, useConnection } from "@solana/wallet-adapter-react";
 import { PublicKey } from "@solana/web3.js";
 import { getProgram, getAllPools, AmmPool, getPoolPda, getAuthorityPda } from "@/lib/program";
-import { getAccount, getMint, getAssociatedTokenAddressSync } from "@solana/spl-token";
+import { getAccount, getAssociatedTokenAddressSync } from "@solana/spl-token";
+import { getCachedMint } from "@/lib/mintCache";
 
 export interface PoolWithIndex extends AmmPool {
   ammIndex: number;
@@ -58,8 +59,8 @@ export function PoolsProvider({ children }: { children: ReactNode }) {
               
               const accountA = await getAccount(connection, poolAccountA);
               const accountB = await getAccount(connection, poolAccountB);
-              const mintAInfo = await getMint(connection, pool.mintA);
-              const mintBInfo = await getMint(connection, pool.mintB);
+              const mintAInfo = await getCachedMint(connection, pool.mintA);
+              const mintBInfo = await getCachedMint(connection, pool.mintB);
               
               const reserveA = (Number(accountA.amount) / Math.pow(10, mintAInfo.decimals)).toFixed(6);
               const reserveB = (Number(accountB.amount) / Math.pow(10, mintBInfo.decimals)).toFixed(6);
