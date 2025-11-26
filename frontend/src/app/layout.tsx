@@ -9,6 +9,7 @@ import { useMemo } from "react";
 import "@solana/wallet-adapter-react-ui/styles.css";
 import "./globals.css";
 import { PoolsProvider } from "@/contexts/PoolsContext";
+import VersionDisplay from "@/components/VersionDisplay";
 
 export default function RootLayout({
   children,
@@ -61,6 +62,7 @@ export default function RootLayout({
             <WalletModalProvider>
               <PoolsProvider>
                 {children}
+                <VersionDisplay />
               </PoolsProvider>
             </WalletModalProvider>
           </WalletProvider>

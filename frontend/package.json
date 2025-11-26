@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "version:increment": "node scripts/increment-version.js"
   },
   "dependencies": {
     "@coral-xyz/anchor": "^0.30.1",
