@@ -1,119 +1,393 @@
-![School of Solana](https://github.com/Ackee-Blockchain/school-of-solana/blob/master/.banner/banner.png?raw=true)
+# AMM (Automated Market Maker) DEX on Solana
 
-## 📚Solana Program
+A decentralized exchange (DEX) built on Solana using the Anchor framework. This project implements a fully functional
+Automated Market Maker with liquidity pools, token swaps, and comprehensive frontend interface.
 
-We are about halfway through the course, and you already have some experience with programming on Solana. It is time to
-create something on your own! You will be building a dApp that will serve as the culmination of everything you have
-learned so far. Feel free to implement whatever comes to your mind, (as long as it passes the requirements).
+**Deployed Frontend URL:** [https://program-limitofzero.vercel.app/](https://program-limitofzero.vercel.app/)
 
-**This does not mean that the School of Solana is coming to an end just yet!** There are still several exciting lectures
-ahead, as well as one security related task.
+## 🚀 Features
 
-### Task details
+### Core Functionality
 
-This task consists of two parts:
+- **Create AMM**: Initialize a new AMM instance with custom fee structure and index
+- **Create Pool**: Set up liquidity pools for any token pair
+- **Add Liquidity**: Provide liquidity to pools and receive LP tokens
+- **Swap Tokens**: Trade tokens through the AMM with automatic price calculation
+- **Withdraw Liquidity**: Remove liquidity from pools and receive tokens back
+- **View Pools**: Browse all active pools with real-time reserves and fees
 
-1. **Core of your dApp**
-    - A deployed Solana program.
-2. **Frontend**
-    - A simple frontend to interact with the dApp.
+### Frontend Features
 
-### Requirements
+- **Wallet Integration**: Connect with Phantom, Solflare, and other Solana wallets
+- **Token Management**: Create tokens, mint tokens, and manage saved token addresses
+- **Real-time Data**: View pool reserves, token balances, and exchange rates
+- **Slippage Protection**: Automatic slippage calculation and minimum output recommendations
+- **User Share Display**: See your liquidity share percentage in pools
+- **Transaction Status**: Detailed success/error feedback
 
-- An Anchor program deployed on **Devnet** or **Mainnet**.
-- The Anchor program must use a PDA (Program Derived Address).
-- At least one TypeScript **test** for each Anchor program instruction. These tests should cover both **happy** and *
-  *unhappy** (intentional error-triggering) scenarios.
-- A simple **frontend** deployed using your preferred provider (for more info, check below).
-- A filled out **PROJECT_DESCRIPTION.md** file.
+## 📋 Prerequisites
 
-### Ideas
+- **Node.js** 18+ and npm/yarn
+- **Rust** and **Anchor** framework installed
+- **Solana CLI** tools installed
+- A Solana wallet (Phantom, Solflare, etc.)
 
-We highly recommend starting with something simple. Take time to think through your project and work on it in
-iterations. Do not try to implement everything at once!
+## 🛠️ Installation
 
-Below is a list of few ideas to get you started:
+### 1. Clone the Repository
 
-- **Social app**
-    - Instagram
-    - Giphy
-    - Friendtech
-    - Spotify
-- **Blog**
-- **Voting** ([D21 - Janeček method](https://www.ih21.org/en/guidelines))
-- **DeFi**
-    - Raffles
-    - Escrow
-    - Tipping
-    - Lending ([Save Documentation](https://docs.save.finance/))
-    - Liquid Staking ([Marinade Documentation](https://docs.marinade.finance/))
-    - Data Query with Pyth ([Pyth Documentation](https://docs.pyth.network/price-feeds))
-    - AMM ([Raydium Documentation](https://raydium.gitbook.io/raydium/))
-- **Gaming**
-    - Browser Game ([Gaming on Solana](https://solanacookbook.com/gaming/nfts-in-games.html#nfts-in-games))
+```bash
+git clone <repository-url>
+cd program-limitofzero
+```
 
-### Deadline
+### 2. Install Anchor Dependencies
 
-The deadline for this task is **Wednesday, November 19th, at 23:59 UTC**.
-> [!CAUTION]
-> Note that we will not accept submissions after the deadline.
+```bash
+cd anchor_project/amm
+anchor build
+```
 
-### Submission
+### 3. Install Frontend Dependencies
 
-There are two folders, one for the Anchor project, and one for the frontend. Push your changes to the **main** branch of
-**this** repository.
+```bash
+cd ../../frontend
+yarn
+```
 
-> [!IMPORTANT]
-> It is essential that you fill out the `PROJECT_DESCRIPTION.md` template completely and accurately. This document will
-> be used by AI for the initial evaluation, so provide detailed information about your project, including working links,
-> clear descriptions, and technical implementation details.
+## 🏗️ Project Structure
 
-> [!NOTE]
-> Your submission repository is public. Feel free to share the link to showcase your work!
+```
+program-limitofzero/
+├── anchor_project/
+│   └── amm/
+│       ├── programs/
+│       │   └── amm/
+│       │       ├── src/
+│       │       │   ├── lib.rs              # Main program entry
+│       │       │   ├── states.rs           # Account structures
+│       │       │   ├── errors.rs           # Custom error types
+│       │       │   └── instructions/       # Program instructions
+│       │       └── Cargo.toml
+│       ├── tests/                          # TypeScript tests
+│       └── Anchor.toml
+├── frontend/
+│   ├── src/
+│   │   ├── app/                           # Next.js app router
+│   │   ├── components/                    # React components
+│   │   ├── contexts/                      # React contexts (PoolsContext)
+│   │   ├── hooks/                         # Custom hooks (useSavedMints)
+│   │   └── lib/                           # Utilities and program setup
+│   └── public/
+│       └── amm.json                       # Program IDL
+└── README.md
+```
 
-### Evaluation
+## 🔧 Configuration
 
-The evaluation process is based on the **requirements**. If you meet the requirements, you pass the task!
+### Program Deployment
 
-> [!NOTE]
-> The first round of evaluations will be conducted by AI to verify requirements before manual review. AI can make
-> mistakes. If you believe you fulfilled all requirements but weren't graded correctly, please create a support ticket and
-> we will resolve the issue.
+The program is deployed on **Solana Devnet** with the following ID:
 
-> [!CAUTION]
-> We expect original work that demonstrates your understanding and creativity. While you may draw inspiration from
-> examples covered in lessons and tasks, **direct copying is not acceptable**. If you choose to build upon an example from
-> the School of Solana materials, you must significantly expand it with additional features, instructions, and
-> functionality to showcase your learning progress.
+```
+Program ID: 264uMZcS5Mcpe5EzAP6P2SoGQE4j7KtpSe6U8mSQZeAN
+```
 
-### Example Workflow
+### Frontend Environment Variables
 
-Let's say you are going to implement the Twitter dApp as the Solana Program. Here's how the steps could look:
+Create a `.env.local` file in the `frontend/` directory:
 
-**1.** Implement Twitter dApp using the Anchor framework.
+```bash
+# Network configuration (devnet, mainnet, localnet)
+NEXT_PUBLIC_SOLANA_NETWORK=devnet
 
-**2.** Test the Twitter dApp using the Anchor framework.
+# Optional: Custom RPC URL (for localnet)
+# NEXT_PUBLIC_SOLANA_RPC_URL=http://127.0.0.1:8899
 
-**3.** Deploy the Twitter dApp on the Solana Devnet.
+# Program ID
+NEXT_PUBLIC_PROGRAM_ID=264uMZcS5Mcpe5EzAP6P2SoGQE4j7KtpSe6U8mSQZeAN
+```
 
-**4.** Using the create solana dapp template, implement frontend for the Twitter dApp.
+## 🚀 Running the Project
 
-**5.** Publish Frontend using [Vercel](https://vercel.com). Ensure the deployment is publicly accessible.
+### Start Local Validator (Optional)
 
-**6.** Fill out the PROJECT_DESCRIPTION.md template.
+For local development, start a local Solana validator:
 
-**7.** Submit the Twitter dApp using GitHub Classroom.
+```bash
+solana-test-validator
+```
 
-### Useful Links
+### Run Frontend
 
-- [Vercel](https://vercel.com)
-- [Create Solana Dapp](https://github.com/solana-foundation/create-solana-dapp)
-- [Account Macro Constraints](https://docs.rs/anchor-lang/0.31.1/anchor_lang/derive.Accounts.html)
-- [Solana Developers Courses](https://solana.com/developers/courses)
+```bash
+cd frontend
+yarn dev
+```
 
------
+Open [http://localhost:3000](http://localhost:3000) in your browser.
 
-### Need help?
+### Run Tests
 
-> [!TIP]
-> If you have any questions, feel free to reach out to us on [Discord](https://discord.gg/z3JVuZyFnp).
+```bash
+cd anchor_project/amm
+anchor test
+```
+
+## 📖 Usage Guide
+
+### 1. Connect Wallet
+
+- Click "Connect Wallet" in the top navigation
+- Select your wallet (Phantom, Solflare, etc.)
+- Approve the connection
+
+### 2. Create Token Pool (Complete Workflow)
+
+**Prerequisites:**
+
+- **You can use any existing SPL tokens** - you don't need to create new tokens. Simply use the mint addresses of any
+  SPL tokens you already have (e.g., USDC, SOL, or any other SPL token).
+- If you already have **2 SPL tokens** with their mint addresses, you can skip to **Step 3.5** (Create AMM) if you
+  haven't created an AMM yet, or proceed directly to **Step 3.6** (Create the Pool).
+- If you don't have tokens yet and want to create test tokens, follow the steps below starting from **Step 3.1** to
+  create them using Dev Tools.
+
+To create a liquidity pool, you need two tokens to pair. You can use any existing SPL tokens or create new ones. Follow
+these steps:
+
+#### Step 3.1: Create Token A
+
+1. Navigate to the **"Dev Tools"** tab
+2. In the **"Create Token Mint"** section:
+    - Enter a **Token Name** (e.g., "My First Token")
+    - Enter a **Token Symbol** (e.g., "MFT")
+    - Set **Decimals** (default: 9)
+3. Click **"Create Mint"**
+4. Copy the generated **Mint Address** (it will be displayed after creation)
+5. The token will be automatically saved to your saved mints list
+
+#### Step 3.2: Mint Token A
+
+1. In the **"Mint Tokens"** section of Dev Tools:
+    - The mint address should already be filled (from the created mint above)
+    - Enter the **Supply** amount (e.g., "1000000" for 1 million tokens)
+    - Click **"Mint Tokens"**
+2. Wait for the transaction to confirm
+3. You should now have tokens in your wallet balance
+
+#### Step 3.3: Create Token B
+
+1. In the **"Create Token Mint"** section again:
+    - Enter a different **Token Name** (e.g., "My Second Token")
+    - Enter a different **Token Symbol** (e.g., "MST")
+    - Set **Decimals** (e.g., 9)
+2. Click **"Create Mint"**
+3. Copy the new **Mint Address**
+
+#### Step 3.4: Mint Token B
+
+1. In the **"Mint Tokens"** section:
+    - The new mint address should be filled
+    - Enter the **Supply** amount (e.g., "1000000")
+    - Click **"Mint Tokens"**
+2. Wait for the transaction to confirm
+
+#### Step 3.5: Create AMM
+
+1. Navigate to the **"Create AMM"** tab
+2. Enter a **Fee** (in basis points, max 9999, e.g., 30 for 0.3%)
+3. Enter an **Index** (unique identifier for the AMM, e.g., 1)
+4. Click **"Create AMM"**
+5. Wait for the transaction to confirm
+6. Remember the **AMM Index** - you'll need it for creating the pool
+
+#### Step 3.6: Create the Pool
+
+1. Navigate to the **"Create Pool"** tab
+2. In the **"Mint A Address"** field:
+    - Select Token A from the dropdown (or paste the mint address)
+    - You'll see the token name/symbol displayed if available
+3. In the **"Mint B Address"** field:
+    - Select Token B from the dropdown (or paste the mint address)
+4. Enter the **AMM Index** (the same index you used when creating the AMM)
+5. Click **"Create Pool"**
+6. Wait for the transaction to confirm
+
+**Note**: You can also use existing tokens from other pools by selecting them from the dropdown in the "Mint Tokens"
+section of Dev Tools, which shows all tokens present in active pools.
+
+### 4. Add Liquidity
+
+- Navigate to "Add Liquidity" tab
+- Select an existing pool from the dropdown (or enter manually)
+- Enter amounts for Token A and Token B
+- Use "Use Recommended" to match pool ratio
+- View your share percentage in the pool
+- Click "Add Liquidity"
+
+### 5. Swap Tokens
+
+- Go to "Swap" tab
+- Select a pool from the dropdown
+- Choose swap direction (A to B or B to A)
+- Enter the amount to swap
+- View exchange rate and estimated output
+- Adjust slippage tolerance if needed
+- Click "Swap"
+
+### 6. Withdraw Liquidity
+
+- Navigate to "Withdraw Liquidity" tab
+- Select a pool you have LP tokens for
+- View your LP token balance
+- Enter amount to withdraw (or use quick buttons: 25%, 50%, 75%, 100%)
+- View estimated token outputs
+- Click "Withdraw Liquidity"
+
+### 7. Dev Tools
+
+- **Create Token Mint**: Create new SPL tokens with custom name, symbol, and decimals
+- **Mint Tokens**: Mint tokens to your wallet (requires mint authority)
+- **Token Selector**: Choose tokens from active pools for minting
+
+## 🏛️ Program Architecture
+
+### Program Instructions
+
+1. **create_amm**: Initialize a new AMM instance
+    - Parameters: `fee` (u16), `index` (u16)
+    - Creates AMM PDA with seeds: `["AMM", index]`
+
+2. **create_pool**: Create a liquidity pool for a token pair
+    - Creates pool PDA, LP mint, and pool token accounts
+    - Seeds: `["AMM_POOL", amm, mint_a, mint_b]`
+
+3. **add_liquidity**: Add tokens to a pool
+    - Parameters: `amount_a` (u64), `amount_b` (u64)
+    - Mints LP tokens proportional to liquidity provided
+    - Calculates optimal amounts to maintain pool ratio
+
+4. **swap**: Exchange tokens through the pool
+    - Parameters: `is_swap_a` (bool), `amount` (u64), `min_out_amount` (u64)
+    - Uses constant product formula (x * y = k)
+    - Applies AMM fee to input amount
+
+5. **withdraw_liquidity**: Remove liquidity from a pool
+    - Parameters: `amount` (u64) - LP token amount to burn
+    - Returns proportional amounts of both tokens
+
+### PDA Usage
+
+The program uses Program Derived Addresses (PDAs) for deterministic account generation:
+
+- **AMM PDA**: `["AMM", index]` - Stores AMM configuration
+- **Pool PDA**: `["AMM_POOL", amm, mint_a, mint_b]` - Stores pool state
+- **Pool Authority PDA**: `["AMM_POOL_AUTHORITY", amm, mint_a, mint_b]` - Controls pool token accounts
+- **LP Mint PDA**: `["AMM_MINT_LIQUIDITY", amm, mint_a, mint_b]` - LP token mint
+
+### Account Structures
+
+```rust
+#[account]
+pub struct Amm {
+    pub admin: Pubkey,      // Admin wallet address
+    pub index: u16,         // Unique AMM index
+    pub fee: u16,           // Fee in basis points (0-9999)
+}
+
+#[account]
+pub struct AmmPool {
+    pub amm: Pubkey,        // AMM this pool belongs to
+    pub mint_a: Pubkey,     // First token mint
+    pub mint_b: Pubkey,     // Second token mint
+}
+```
+
+## 🧪 Testing
+
+The project includes comprehensive tests covering both happy and unhappy paths:
+
+### Test Files
+
+- `tests/amm.ts` - AMM creation tests
+- `tests/pool.ts` - Pool creation tests
+- `tests/add_liquidity.ts` - Liquidity addition tests
+- `tests/swap.ts` - Token swap tests
+- `tests/withdraw_liquidity.ts` - Liquidity withdrawal tests
+
+### Test Coverage
+
+**Happy Path Tests:**
+
+- Create AMM with valid parameters
+- Create multiple pools with different indices
+- Add liquidity to new and existing pools
+- Swap tokens in both directions
+- Withdraw liquidity and receive tokens
+- Handle different token decimals
+
+**Unhappy Path Tests:**
+
+- Cannot create AMM with duplicate index
+- Cannot create AMM with fee >= 10000
+- Cannot create pool with same token pair twice
+- Cannot add liquidity with zero amounts
+- Cannot swap with insufficient balance
+- Cannot swap with output below minimum
+- Cannot withdraw more LP tokens than owned
+
+Run tests:
+
+```bash
+cd anchor_project/amm
+anchor test
+```
+
+## 🔐 Security Considerations
+
+- **Fee Validation**: Fees are validated to be less than MAX_FEE_BPS (10000)
+- **Amount Validation**: All amounts must be greater than zero
+- **Balance Checks**: Insufficient balance errors are properly handled
+- **Slippage Protection**: Minimum output amounts prevent unfavorable swaps
+- **PDA Signing**: Pool authority uses PDA seeds for secure signing
+
+## 🌐 Deployment
+
+### Deploy Program to Devnet
+
+```bash
+cd anchor_project/amm
+anchor build
+anchor deploy --provider.cluster devnet
+```
+
+### Deploy Frontend
+
+The frontend is deployed on vercel:
+
+- **Vercel** (recommended)
+- **Netlify**
+- **Any static hosting service**
+
+```bash
+cd frontend
+yarn run build
+# Deploy the 'out' or '.next' directory
+```
+
+## 📚 Technologies Used
+
+- **Anchor**: Solana program framework
+- **Rust**: Program language
+- **TypeScript**: Tests and frontend
+- **Next.js**: Frontend framework
+- **React**: UI library
+- **@solana/web3.js**: Solana JavaScript SDK
+- **@coral-xyz/anchor**: Anchor TypeScript client
+- **@solana/spl-token**: SPL Token library
+- **Tailwind CSS**: Styling
+
+---
+
+**Note**: This AMM is deployed on Solana Devnet for educational purposes.
